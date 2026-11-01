@@ -1,0 +1,13 @@
+export { DashboardPage } from './pages/DashboardPage'
+export { useDashboard } from './hooks/useDashboard'
+export { dashboardService } from './services/dashboardService'
+export { default as DashboardStats } from './components/DashboardStats'
+export { default as TopTracks } from './components/TopTracks'
+export { default as RecentTracks } from './components/RecentTracks'
+export { default as SystemStatus } from './components/SystemStatus'
+export { default as RecentUsers } from './components/RecentUsers'
+export { default as QuickActions } from './components/QuickActions'
+export { default as RecentAlbums } from './components/RecentAlbums'
+export { default as AmbientBackground } from './components/AmbientBackground'
+export { default as ComingSoon } from './components/ComingSoon'
+

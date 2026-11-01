@@ -1,0 +1,132 @@
+name: antara
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: antara-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-antaradb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Solo accesible desde el host (útil para administrar la BD con un cliente)
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-antaradb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - antara-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: ./antara.backend
+      dockerfile: Dockerfile
+    image: antara-api:latest
+    container_name: antara-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      AppSettings__ConexionString: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-antaradb};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};SSL Mode=Disable;"
+      AppSettings__DefaultAudioStoragePath: /music
+      AppSettings__TokenSecret: ${TOKEN_SECRET:-antara-cambia-este-secreto-en-produccion}
+      AppSettings__TokenExpiracionHoras: ${TOKEN_EXPIRACION_HORAS:-8}
+      AppSettings__EscaneoAudioMaxParalelo: ${ESCANEO_AUDIO_MAX_PARALELO:-4}
+      AppSettings__DeezerApiBase: ${DEEZER_API_BASE:-https://api.deezer.com}
+      AppSettings__TheAudioDbApiBase: ${THEAUDIODB_API_BASE:-https://www.theaudiodb.com/api/v1/json/123}
+      AppSettings__TheAudioDbApiKey: ${THEAUDIODB_API_KEY:-123}
+      AppSettings__LetrasApiBase: ${LETRAS_API_BASE:-https://api.lyrics.ovh}
+      AppSettings__MetadatosTimeoutSegundos: ${METADATOS_TIMEOUT_SEGUNDOS:-20}
+      AppSettings__HostMountRoot: ${HOST_MOUNT_ROOT:-/host}
+      TZ: ${TZ:-UTC}
+    volumes:
+      # Biblioteca principal (en appsettings.json corresponde a ContainerPath /music)
+      - type: bind
+        source: ${MUSIC_PATH:-./music}
+        target: /music
+      # Biblioteca FLAC (en appsettings.json corresponde a ContainerPath /music/flac)
+      - type: bind
+        source: ${MUSIC_FLAC_PATH:-./music/flac}
+        target: /music/flac
+      # Unidad C: del host en solo lectura. Permite usar rutas como
+      # C:/Users/TuUsuario/Music desde el panel; la API las traduce a
+      # /host/c/Users/TuUsuario/Music automáticamente.
+      - type: bind
+        source: ${HOST_C_DRIVE:-C:/}
+        target: /host/c
+        read_only: true
+      # Portadas y demás archivos subidos desde la API
+      - type: volume
+        source: uploads_data
+        target: /app/wwwroot/uploads
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Program.cs inicializa la BD antes de host.RunAsync(), por lo que el puerto
+      # abierto implica que la API está lista para atender peticiones.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - antara-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  web:
+    build:
+      context: ./antara.admin
+      dockerfile: Dockerfile
+    image: antara-admin:latest
+    container_name: antara-admin
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/sistema/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - antara-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    # Reutiliza el volumen creado por el docker-compose anterior para conservar
+    # los datos existentes. Si prefieres una BD nueva, cambia el nombre.
+    name: antarabackend_postgres_data
+  uploads_data:
+    name: antara-uploads
+
+networks:
+  antara-network:
+    name: antara-network
+    driver: bridge

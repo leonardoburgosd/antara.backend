@@ -400,3 +400,7 @@ FodyWeavers.xsd
 
 *.jfm
 /.sonarqube
+.cloud-attachments
+.freebuff
+.github
+music
