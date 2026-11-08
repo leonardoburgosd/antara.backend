@@ -1,3 +1,4 @@
+using AntaraSoft.Application;
 using AntaraSoft.Domain.Entities;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,7 @@ namespace AntaraSoft.Application.Contracts.Repository
         Task<Usuario> ObtenerUsuario(Guid id);
         Task<List<Usuario>> ObtenerTodosUsuarios();
         Task CrearUsuario(Usuario usuario);
+        Task ActualizarUsuario(Usuario usuario);
         Task<bool> VerificarEmailUnico(string email);
         Task<bool> ExisteAdministrador();
         Task<Usuario> Login(string email);
@@ -44,6 +46,8 @@ namespace AntaraSoft.Application.Contracts.Repository
         Task<Playlist> ObtenerPlaylist(Guid id);
         Task<List<Playlist>> ObtenerTodasPlaylists(Guid usuarioId);
         Task<List<Playlist>> ObtenerTodosPlaylistDeUsuario(Guid userId);
+        Task<List<PlaylistResumenDto>> ObtenerResumenes();
+        Task<List<PistaBibliotecaDto>> ObtenerPistasDePlaylist(Guid playlistId);
         Task CrearPlaylist(Playlist playlist);
         Task EliminarPlaylist(Guid id);
         Task EditarPlaylist(Playlist playlist);

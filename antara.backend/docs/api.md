@@ -5,21 +5,33 @@
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
 | `GET` | `/api/sistema/health` | No | Estado del sistema |
+| `GET` | `/api/sistema/unidades-host` | Admin | Unidades del host visibles desde la API |
 | `GET` | `/api/sistema/crear-primer-admin` | No | Verifica si hay admin |
 | `POST` | `/api/sistema/crea-primero-admin` | No | Crea el primer admin |
 | `POST` | `/api/usuario/login` | No | Login con email/password |
 | `GET` | `/api/usuario/todos` | Admin | Lista todos los usuarios |
 | `POST` | `/api/usuario` | Admin | Crea un usuario |
+| `PUT` | `/api/usuario/{id}` | Admin | Actualiza un usuario (datos, rol, estado, contraseña) |
 | `DELETE` | `/api/usuario/{id}` | Admin | Elimina un usuario |
+| `GET` | `/api/usuario/perfil` | Token | Datos del usuario autenticado |
+| `PUT` | `/api/usuario/perfil` | Token | Actualiza el perfil propio |
+| `POST` | `/api/usuario/perfil/password` | Token | Cambia la contraseña propia |
 | `GET` | `/api/pista/todos` | Admin | Biblioteca de pistas |
+| `GET` | `/api/pista/subir/rutas` | Admin | Rutas disponibles para subir audio |
+| `POST` | `/api/pista/subir` | Admin | Sube un archivo de audio a una ruta |
+| `POST` | `/api/pista/subir/url` | Admin | Descarga audio de YouTube y lo guarda en una ruta |
+| `GET` | `/api/pista/metadatos/proveedores` | Admin | Proveedores de metadatos habilitados |
 | `GET` | `/api/pista/metadatos/buscar` | Admin | Busca metadatos en proveedores |
 | `POST` | `/api/pista/{id}/metadatos` | Admin | Aplica metadatos a una pista |
 | `GET` | `/api/pista/{id}` | No | Stream del archivo de audio |
 | `PUT` | `/reproducir/{id}` | No | Registra una reproducción |
-| `GET` | `/api/album/todos` | No | Lista todos los álbumes |
+| `GET` | `/api/album/todos` | Admin | Lista todos los álbumes |
 | `POST` | `/api/album` | Admin | Crea un álbum |
 | `PUT` | `/api/album/{id}` | Admin | Edita un álbum |
+| `PUT` | `/api/album/{id}/publicar` | Admin | Alterna publicado/borrador |
 | `DELETE` | `/api/album/{id}` | Admin | Elimina un álbum |
+| `GET` | `/api/album/{id}` | No | Obtiene un álbum |
+| `GET` | `/api/album/todos/{usuarioId}` | No | Álbumes de un usuario |
 | `GET` | `/api/playlist` | Admin | Playlists del usuario autenticado |
 | `POST` | `/api/playlist` | Admin | Crea una playlist |
 | `GET` | `/api/rutas-audio` | Admin | Lista rutas de audio |
@@ -50,6 +62,22 @@ Estado del sistema. No requiere autenticación. Usado por el healthcheck de Dock
   "usuariosTotales": 1,
   "adminsRegistrados": true,
   "estado": "Operativo"
+}
+```
+
+---
+
+### `GET /api/sistema/unidades-host`
+
+Unidades del host que el contenedor de la API puede leer en este momento. Se
+detectan desde los montajes reales (`/host/c`, `/host/h`…), sin letras fijas en
+el código. Requiere token de administrador.
+
+**Respuesta 200:**
+```json
+{
+  "raiz": "/host",
+  "unidades": ["c", "d", "e", "f", "g", "h"]
 }
 ```
 
@@ -111,6 +139,103 @@ Crea el primer administrador del sistema. Solo funciona si no existe ningún adm
 
 ---
 
+## Usuarios (`UsuarioController`)
+
+Todos los endpoints, salvo `login`, exigen `Authorization: Bearer {token}`. El CRUD
+requiere rol `admin`.
+
+### `GET /api/usuario/todos`
+
+Lista de usuarios sin contraseña. Cada elemento incluye `id`, `email`, `nombre`,
+`fechaNacimiento`, `genero`, `estaActivo`, `fechaRegistro`, `pais`, `fotoPerfil` y `tipo`.
+
+### `POST /api/usuario`
+
+**Body:**
+```json
+{
+  "email": "usuario@antara.app",
+  "password": "mínimo-6-caracteres",
+  "nombre": "Nombre completo",
+  "fechaNacimiento": "1995-04-12",
+  "genero": "F",
+  "pais": "Perú",
+  "fotoPerfil": "https://...",
+  "tipo": "usuario"
+}
+```
+
+Responde `201` con el usuario creado. `409`/`400` si el correo ya existe o los datos no son válidos.
+`tipo` se normaliza a `admin` o `usuario`.
+
+### `PUT /api/usuario/{id}`
+
+Mismos campos que la creación, todos opcionales. `password` solo se reemplaza si se envía.
+El correo debe seguir siendo único.
+
+### `DELETE /api/usuario/{id}`
+
+Elimina la cuenta. No permite borrar la propia cuenta ni dejar el sistema sin ningún
+administrador. Si el usuario tiene álbumes o playlists asociados, la base rechaza el borrado (`500`).
+
+### `GET /api/usuario/perfil`
+
+Devuelve el usuario del token, con el mismo formato que la lista.
+
+### `PUT /api/usuario/perfil`
+
+Permite cambiar únicamente `email`, `nombre`, `fechaNacimiento`, `genero`, `pais` y
+`fotoPerfil`. El rol y el estado no se modifican desde aquí.
+
+### `POST /api/usuario/perfil/password`
+
+**Body:**
+```json
+{ "passwordActual": "...", "passwordNueva": "mínimo 6 caracteres" }
+```
+
+Responde `400` si la contraseña actual no coincide o la nueva es demasiado corta.
+
+---
+
+## Álbumes (`AlbumController`)
+
+### `GET /api/album/todos`
+
+Lista todos los álbumes con `id`, `nombre`, `descripcion`, `estaPublicado`,
+`fechaPublicacion`, `portadaUrl`, `usuarioId`, `estaActivo`, `artista`,
+`fuenteMetadatos` e `idExternoMetadatos`.
+
+### `POST /api/album`
+
+**Body:**
+```json
+{
+  "nombre": "A Night at the Opera",
+  "descripcion": "Álbum de estudio",
+  "artista": "Queen",
+  "portadaUrl": "https://...",
+  "estaPublicado": false
+}
+```
+
+Responde `201` con el álbum creado. El `usuarioId` se toma del token; el nombre es obligatorio.
+
+### `PUT /api/album/{id}`
+
+Mismos campos, todos opcionales; los ausentes conservan su valor. Al pasar a publicado se
+registra la fecha de publicación si aún no existía.
+
+### `PUT /api/album/{id}/publicar`
+
+Alterna el estado de publicación y devuelve el álbum actualizado.
+
+### `DELETE /api/album/{id}`
+
+Responde `400` si el álbum tiene pistas asociadas (la relación debe quitarse antes).
+
+---
+
 ## Pistas (`PistaController`)
 
 ### `GET /api/pista/todos`
@@ -140,6 +265,65 @@ Lista todas las pistas de la biblioteca con metadatos completos.
 
 ---
 
+### `GET /api/pista/subir/rutas`
+
+Lista las rutas de audio activas como posibles destinos de subida. El panel arma su
+selector con esta respuesta.
+
+**Respuesta 200:** Array de `RutaSubidaDto`:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | uuid | Identificador de la ruta |
+| `nombre` | string | Nombre visible |
+| `rutaDestino` | string | Carpeta resuelta dentro del contenedor |
+| `disponible` | bool | La carpeta existe y es visible desde la API |
+| `escribible` | bool | La API puede crear archivos en ella |
+| `esPredeterminada` | bool | Ruta que se usa cuando no se elige otra |
+
+### `POST /api/pista/subir`
+
+Sube una canción desde el panel y la registra en la biblioteca (con el mismo
+enriquecido de metadatos que el escaneo). Requiere `multipart/form-data`:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `archivo` | file | Archivo de audio (obligatorio) |
+| `rutaId` | uuid | Ruta de destino; si se omite se usa la predeterminada |
+| `subcarpeta` | string | Subcarpeta opcional dentro de la ruta (por ejemplo `Rock/2026`) |
+
+Solo se aceptan `.mp3`, `.flac`, `.wav`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wma`,
+`.aiff` y `.alac`. El archivo nunca se escribe fuera de la ruta elegida y no se
+sobrescribe: si ya existe, se agrega ` (1)`, ` (2)`, …
+
+**Respuesta 201:** `SubidaPistaDto` con `pistaId`, `nombre`, `interprete`, `album`,
+`archivo`, `rutaDestino`, `rutaId`, `rutaNombre`, `conMetadatos` y `mensaje`.
+
+**Errores:**
+- `400` — Extensión no permitida, archivo vacío, subcarpeta inválida o ruta no escribible.
+- `404` — La ruta indicada no existe.
+
+### `POST /api/pista/subir/url`
+
+Descarga el audio de un enlace de **YouTube** (con `yt-dlp` + `ffmpeg` dentro de la
+imagen) y lo guarda en la ruta indicada, registrándolo en la biblioteca con el mismo
+enriquecido de metadatos que el escaneo. Cuerpo JSON:
+
+```json
+{ "url": "https://www.youtube.com/watch?v=...", "rutaId": "uuid-opcional", "subcarpeta": "Rock/2026" }
+```
+
+- Solo se aceptan dominios `youtube.com` (incluye `music.` y `m.`) y `youtu.be`; un
+  enlace de otro sitio responde `400`.
+- Se descarga el mejor audio disponible y se convierte a **MP3**; las listas de
+  reproducción se ignoran (`--no-playlist`).
+- El tiempo máximo por descarga se configura con
+  `AppSettings__DescargaYouTubeTimeoutSegundos` (600 por defecto).
+- Si la ruta no existe o no es escribible responde `400`; si el `rutaId` no existe, `404`.
+
+**Respuesta 201:** `SubidaPistaDto` con `pistaId`, `nombre`, `interprete`, `album`,
+`archivo`, `rutaDestino`, `rutaId`, `rutaNombre`, `conMetadatos` y `mensaje`.
+
 ### `GET /api/pista/metadatos/buscar?cadena=queen&proveedor=todos`
 
 Busca candidatos de metadatos en los proveedores externos.
@@ -148,7 +332,12 @@ Busca candidatos de metadatos en los proveedores externos.
 
 **Query params:**
 - `cadena` (requerido) — Texto de búsqueda (artista + título)
-- `proveedor` — `"todos"` | `"deezer"` | `"theaudiodb"` (defecto: `"todos"`)
+- `proveedor` — `"todos"` o el `Nombre` de cualquier proveedor habilitado en la configuración (`deezer`, `theaudiodb`, ...). Defecto: `"todos"`.
+
+**Respuesta 400:** si `proveedor` no corresponde a ningún proveedor habilitado:
+```json
+{ "error": "El proveedor 'spotify' no esta habilitado. Disponibles: deezer, theaudiodb." }
+```
 
 **Respuesta 200:** Array de candidatos:
 ```json

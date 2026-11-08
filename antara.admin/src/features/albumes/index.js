@@ -1,0 +1,5 @@
+export { AlbumesPage } from './pages/AlbumesPage'
+export { useAlbumes } from './hooks/useAlbumes'
+export { albumService } from './services/albumService'
+export { AlbumesTable, AlbumesCardsMobile } from './components/AlbumesTable'
+export { default as AlbumFormModal } from './components/AlbumFormModal'

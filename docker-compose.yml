@@ -44,11 +44,53 @@ services:
       AppSettings__TokenSecret: ${TOKEN_SECRET:-antara-cambia-este-secreto-en-produccion}
       AppSettings__TokenExpiracionHoras: ${TOKEN_EXPIRACION_HORAS:-8}
       AppSettings__EscaneoAudioMaxParalelo: ${ESCANEO_AUDIO_MAX_PARALELO:-4}
-      AppSettings__DeezerApiBase: ${DEEZER_API_BASE:-https://api.deezer.com}
-      AppSettings__TheAudioDbApiBase: ${THEAUDIODB_API_BASE:-https://www.theaudiodb.com/api/v1/json/123}
-      AppSettings__TheAudioDbApiKey: ${THEAUDIODB_API_KEY:-123}
-      AppSettings__LetrasApiBase: ${LETRAS_API_BASE:-https://api.lyrics.ovh}
+      # Tamaño máximo de una canción subida desde el panel (MB).
+      AppSettings__SubidaAudioMaxMb: ${SUBUDA_AUDIO_MAX_MB:-2048}
+      # Descarga de audio desde YouTube con yt-dlp (incluido en la imagen).
+      AppSettings__YtDlpPath: ${YTDLP_PATH:-yt-dlp}
+      AppSettings__DescargaYouTubeTimeoutSegundos: ${DESCARGA_YOUTUBE_TIMEOUT_SEGUNDOS:-600}
+      # Cliente de YouTube: "android" evita el bloqueo de bots en muchas redes.
+      AppSettings__YtDlpPlayerClient: ${YTDLP_PLAYER_CLIENT:-android}
+      # Cookies opcionales (formato Netscape) si YouTube exige iniciar sesión.
+      AppSettings__YtDlpCookiesPath: ${YTDLP_COOKIES_PATH:-/config/cookies/youtube.txt}
       AppSettings__MetadatosTimeoutSegundos: ${METADATOS_TIMEOUT_SEGUNDOS:-20}
+      # Proveedores de metadatos: lista configurable, no clases fijas. Cada índice
+      # es un proveedor con su tipo (adaptador), URL, clave y orden de consulta.
+      # Para deshabilitar uno: Habilitado=false. Para agregar otro compatible con
+      # un adaptador existente: agrega el bloque con el siguiente índice.
+      AppSettings__MetadatosProveedores__0__Nombre: deezer
+      AppSettings__MetadatosProveedores__0__Etiqueta: Deezer
+      AppSettings__MetadatosProveedores__0__Tipo: deezer
+      AppSettings__MetadatosProveedores__0__BaseUrl: ${DEEZER_API_BASE:-https://api.deezer.com}
+      AppSettings__MetadatosProveedores__0__Prioridad: ${DEEZER_PRIORIDAD:-0}
+      AppSettings__MetadatosProveedores__0__Habilitado: ${DEEZER_HABILITADO:-true}
+      AppSettings__MetadatosProveedores__1__Nombre: theaudiodb
+      AppSettings__MetadatosProveedores__1__Etiqueta: TheAudioDB
+      AppSettings__MetadatosProveedores__1__Tipo: theaudiodb
+      AppSettings__MetadatosProveedores__1__BaseUrl: ${THEAUDIODB_API_BASE:-https://www.theaudiodb.com/api/v1/json/123}
+      AppSettings__MetadatosProveedores__1__ApiKey: ${THEAUDIODB_API_KEY:-123}
+      AppSettings__MetadatosProveedores__1__Prioridad: ${THEAUDIODB_PRIORIDAD:-1}
+      AppSettings__MetadatosProveedores__1__Habilitado: ${THEAUDIODB_HABILITADO:-true}
+      # MusicBrainz + Cover Art Archive: sin clave, limite de 1 peticion/segundo.
+      AppSettings__MetadatosProveedores__2__Nombre: musicbrainz
+      AppSettings__MetadatosProveedores__2__Etiqueta: MusicBrainz
+      AppSettings__MetadatosProveedores__2__Tipo: musicbrainz
+      AppSettings__MetadatosProveedores__2__BaseUrl: ${MUSICBRAINZ_API_BASE:-https://musicbrainz.org}
+      AppSettings__MetadatosProveedores__2__Prioridad: ${MUSICBRAINZ_PRIORIDAD:-2}
+      AppSettings__MetadatosProveedores__2__Habilitado: ${MUSICBRAINZ_HABILITADO:-true}
+      # iTunes Search API: sin clave, ~20 peticiones/minuto.
+      AppSettings__MetadatosProveedores__3__Nombre: itunes
+      AppSettings__MetadatosProveedores__3__Etiqueta: iTunes
+      AppSettings__MetadatosProveedores__3__Tipo: itunes
+      AppSettings__MetadatosProveedores__3__BaseUrl: ${ITUNES_API_BASE:-https://itunes.apple.com}
+      AppSettings__MetadatosProveedores__3__Prioridad: ${ITUNES_PRIORIDAD:-3}
+      AppSettings__MetadatosProveedores__3__Habilitado: ${ITUNES_HABILITADO:-true}
+      # Alternativa para redefinir TODA la lista desde una sola variable de entorno
+      # (JSON). Si se define, tiene prioridad sobre los bloques anteriores.
+      METADATOS_PROVEEDORES_JSON: ${METADATOS_PROVEEDORES_JSON:-}
+      AppSettings__LetrasProveedor__Tipo: lyricsovh
+      AppSettings__LetrasProveedor__BaseUrl: ${LETRAS_API_BASE:-https://api.lyrics.ovh}
+      AppSettings__LetrasProveedor__Habilitado: ${LETRAS_HABILITADO:-true}
       AppSettings__HostMountRoot: ${HOST_MOUNT_ROOT:-/host}
       TZ: ${TZ:-UTC}
     volumes:
@@ -60,17 +102,20 @@ services:
       - type: bind
         source: ${MUSIC_FLAC_PATH:-./music/flac}
         target: /music/flac
-      # Unidad C: del host en solo lectura. Permite usar rutas como
-      # C:/Users/TuUsuario/Music desde el panel; la API las traduce a
-      # /host/c/Users/TuUsuario/Music automáticamente.
-      - type: bind
-        source: ${HOST_C_DRIVE:-C:/}
-        target: /host/c
-        read_only: true
+      # Unidades del host en solo lectura. No se declaran aquí: las genera
+      # scripts/montar-unidades.sh en docker-compose.unidades.yml según las
+      # unidades que existan en el host (X:/ -> /host/x). Levanta el stack con
+      # ese archivo adicional (ver README) para que las rutas del panel sean
+      # visibles desde el contenedor.
       # Portadas y demás archivos subidos desde la API
       - type: volume
         source: uploads_data
         target: /app/wwwroot/uploads
+      # Cookies de YouTube para yt-dlp (opcional). El archivo se ignora si no existe.
+      - type: bind
+        source: ./cookies
+        target: /config/cookies
+        read_only: true
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -118,6 +163,47 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Acceso remoto por Tailscale. Es opcional: solo se inicia con
+  #   docker compose --profile tailscale up -d
+  # y requiere TAILSCALE_AUTHKEY en .env. Publica el panel del servicio web en
+  # https://<TAILSCALE_HOSTNAME>.<tu-tailnet>.ts.net con "tailscale serve", sin
+  # abrir puertos en el router ni reenviar el 80 del host.
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: antara-tailscale
+    restart: unless-stopped
+    profiles: ["tailscale"]
+    # El entrypoint arranca containerboot y publica el panel con el nombre DNS
+    # real del nodo, sin depender de ${TS_CERT_DOMAIN} ni de HTTPS.
+    entrypoint: ["/bin/sh", "/config/entrypoint.sh"]
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_HOSTNAME: ${TAILSCALE_HOSTNAME:-antara}
+      # http (puerto 80, sin certificados), https (puerto 443, requiere
+      # certificados habilitados en el tailnet) o ninguno.
+      TAILSCALE_SERVE_MODE: ${TAILSCALE_SERVE_MODE:-http}
+      TAILSCALE_SERVE_URL: ${TAILSCALE_SERVE_URL:-http://web:80}
+      # Networking en espacio de usuario: no necesita NET_ADMIN ni /dev/net/tun,
+      # así funciona igual en Docker Desktop (Windows/macOS) y en Linux.
+      TS_USERSPACE: "true"
+      TS_ACCEPT_DNS: "false"
+      TS_EXTRA_ARGS: ${TAILSCALE_EXTRA_ARGS:-}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - ./tailscale/entrypoint.sh:/config/entrypoint.sh:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - antara-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   postgres_data:
     # Reutiliza el volumen creado por el docker-compose anterior para conservar
@@ -125,6 +211,9 @@ volumes:
     name: antarabackend_postgres_data
   uploads_data:
     name: antara-uploads
+  # Conserva la identidad del nodo Tailscale entre reinicios.
+  tailscale_state:
+    name: antara-tailscale-state
 
 networks:
   antara-network:

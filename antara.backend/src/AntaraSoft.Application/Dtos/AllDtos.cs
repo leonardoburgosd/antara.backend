@@ -10,6 +10,7 @@ namespace AntaraSoft.Application
         public string Nombre { get; set; }
         public DateTime FechaNacimiento { get; set; }
         public char Genero { get; set; }
+        public bool EstaActivo { get; set; }
         public DateTime FechaRegistro { get; set; }
         public string Pais { get; set; }
         public string FotoPerfil { get; set; }
@@ -23,8 +24,41 @@ namespace AntaraSoft.Application
         public string Nombre { get; set; }
         public DateTime FechaNacimiento { get; set; }
         public char Genero { get; set; }
-        public string Pais { get; set; }
-        public string Tipo { get; set; }
+        public string? Pais { get; set; }
+        public string? FotoPerfil { get; set; }
+        public string? Tipo { get; set; }
+    }
+
+    /// <summary>Datos editables de un usuario desde el CRUD del panel.</summary>
+    public class ActualizarUsuarioDto
+    {
+        public string? Email { get; set; }
+        public string? Nombre { get; set; }
+        public DateTime? FechaNacimiento { get; set; }
+        public char? Genero { get; set; }
+        public string? Pais { get; set; }
+        public string? FotoPerfil { get; set; }
+        public string? Tipo { get; set; }
+        public bool? EstaActivo { get; set; }
+        /// <summary>Opcional: si viene, se reemplaza la contraseña.</summary>
+        public string? Password { get; set; }
+    }
+
+    /// <summary>Datos que el usuario autenticado puede cambiar de su propio perfil.</summary>
+    public class ActualizarPerfilDto
+    {
+        public string? Email { get; set; }
+        public string? Nombre { get; set; }
+        public DateTime? FechaNacimiento { get; set; }
+        public char? Genero { get; set; }
+        public string? Pais { get; set; }
+        public string? FotoPerfil { get; set; }
+    }
+
+    public class CambiarPasswordDto
+    {
+        public string? PasswordActual { get; set; }
+        public string? PasswordNueva { get; set; }
     }
 
     public class LoginUsuarioDto
@@ -117,6 +151,16 @@ namespace AntaraSoft.Application
         public string Fuente { get; set; }
     }
 
+    /// <summary>
+    /// Proveedor de metadatos habilitado. La lista la define la configuración,
+    /// no el código, y el panel la usa para construir su selector.
+    /// </summary>
+    public class ProveedorMetadatosDto
+    {
+        public string Nombre { get; set; }
+        public string Etiqueta { get; set; }
+    }
+
     public class AlbumDto
     {
         public Guid Id { get; set; }
@@ -135,15 +179,41 @@ namespace AntaraSoft.Application
     public class CrearAgrupacionDto
     {
         public string Nombre { get; set; }
-        public string Descripcion { get; set; }
+        public string? Descripcion { get; set; }
         public Guid UsuarioId { get; set; }
+        /// <summary>Portada opcional cuando no se adjunta un archivo de imagen.</summary>
+        public string? PortadaUrl { get; set; }
     }
 
     public class EditarAgrupacionDto
     {
         public string Nombre { get; set; }
-        public string Descripcion { get; set; }
-        public string PortadaUrl { get; set; }
+        public string? Descripcion { get; set; }
+        /// <summary>Opcional: si no viene, la portada actual se conserva.</summary>
+        public string? PortadaUrl { get; set; }
+        /// <summary>Quita la portada actual cuando no se adjunta otra imagen.</summary>
+        public bool QuitarPortada { get; set; }
+    }
+
+    /// <summary>Datos para crear un álbum desde el panel.</summary>
+    public class CrearAlbumDto
+    {
+        public string Nombre { get; set; }
+        public string? Descripcion { get; set; }
+        public string? PortadaUrl { get; set; }
+        public string? Artista { get; set; }
+        public bool? EstaPublicado { get; set; }
+    }
+
+    /// <summary>Datos editables de un álbum; los ausentes conservan su valor.</summary>
+    public class ActualizarAlbumDto
+    {
+        public string? Nombre { get; set; }
+        public string? Descripcion { get; set; }
+        public string? PortadaUrl { get; set; }
+        public string? Artista { get; set; }
+        public bool? EstaPublicado { get; set; }
+        public bool? EstaActivo { get; set; }
     }
 
     public class PlaylistDto
@@ -154,6 +224,31 @@ namespace AntaraSoft.Application
         public Guid UsuarioId { get; set; }
         public string PortadaUrl { get; set; }
         public bool EstaActivo { get; set; }
+    }
+
+    /// <summary>
+    /// Playlist con datos agregados para el panel: cuántas canciones tiene y
+    /// cuántos artistas distintos reúne (una playlist mezcla artistas).
+    /// </summary>
+    public class PlaylistResumenDto
+    {
+        public Guid Id { get; set; }
+        public string Nombre { get; set; }
+        public string Descripcion { get; set; }
+        public string PortadaUrl { get; set; }
+        public Guid UsuarioId { get; set; }
+        public string UsuarioNombre { get; set; }
+        public bool EstaActivo { get; set; }
+        public int TotalPistas { get; set; }
+        public int TotalArtistas { get; set; }
+        /// <summary>Nombres de los artistas presentes, separados por coma.</summary>
+        public string Artistas { get; set; }
+    }
+
+    /// <summary>Canciones que se agregan o quitan de una playlist.</summary>
+    public class AgregarPistaPlaylistDto
+    {
+        public Guid PistaId { get; set; }
     }
 
     public class RutaAudioDto
@@ -168,6 +263,40 @@ namespace AntaraSoft.Application
         public DateTime FechaRegistro { get; set; }
         public DateTime? FechaActualizacion { get; set; }
         public string RutaEfectiva { get; set; }
+    }
+
+    /// <summary>Ruta activa que puede recibir subidas desde el panel.</summary>
+    public class RutaSubidaDto
+    {
+        public Guid Id { get; set; }
+        public string Nombre { get; set; }
+        public string RutaDestino { get; set; }
+        public bool Disponible { get; set; }
+        public bool Escribible { get; set; }
+        public bool EsPredeterminada { get; set; }
+    }
+
+    /// <summary>Datos para descargar una canción desde YouTube en una ruta.</summary>
+    public class SubidaDesdeUrlDto
+    {
+        public Guid? RutaId { get; set; }
+        public string? Subcarpeta { get; set; }
+        public string Url { get; set; }
+    }
+
+    /// <summary>Resultado de subir un archivo de audio a una ruta registrada.</summary>
+    public class SubidaPistaDto
+    {
+        public Guid PistaId { get; set; }
+        public string Nombre { get; set; }
+        public string Interprete { get; set; }
+        public string Album { get; set; }
+        public bool ConMetadatos { get; set; }
+        public string Archivo { get; set; }
+        public string RutaDestino { get; set; }
+        public Guid RutaId { get; set; }
+        public string RutaNombre { get; set; }
+        public string Mensaje { get; set; }
     }
 
     public class CrearRutaAudioDto
@@ -269,6 +398,7 @@ namespace AntaraSoft.Application
 
     public class EscaneoAudioResultadoDto
     {
+        public Guid? PistaId { get; set; }
         public string Archivo { get; set; }
         public string Nombre { get; set; }
         public string Interprete { get; set; }
@@ -290,5 +420,18 @@ namespace AntaraSoft.Application
         public int UsuariosTotales { get; set; }
         public bool AdminsRegistrados { get; set; }
         public string Estado { get; set; }
+    }
+
+    /// <summary>
+    /// Unidades del host visibles desde el contenedor de la API. Se detectan en
+    /// caliente a partir de los montajes, sin listas fijas de letras.
+    /// </summary>
+    public class UnidadesHostDto
+    {
+        /// <summary>Punto de montaje (normalmente <c>/host</c>).</summary>
+        public string Raiz { get; set; }
+
+        /// <summary>Letras de unidad detectadas, en minúsculas y ordenadas.</summary>
+        public List<string> Unidades { get; set; } = new List<string>();
     }
 }

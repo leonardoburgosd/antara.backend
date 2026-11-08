@@ -12,6 +12,18 @@ export const rutaAudioService = {
     return Array.isArray(data) ? data : []
   },
 
+  // Unidades del host que la API ve en este momento (/host/c, /host/h...).
+  // La lista viene del backend, no de letras fijas en el código.
+  async getUnidadesHost() {
+    const response = await apiClient.get(ENDPOINTS.SISTEMA.UNIDADES_HOST)
+    if (!response.ok) return { raiz: '/host', unidades: [] }
+    const data = await response.json()
+    return {
+      raiz: data?.raiz || '/host',
+      unidades: Array.isArray(data?.unidades) ? data.unidades : [],
+    }
+  },
+
   async createRuta(data) {
     const response = await apiClient.post(ENDPOINTS.RUTAS_AUDIO.CREATE, data)
     if (!response.ok) {

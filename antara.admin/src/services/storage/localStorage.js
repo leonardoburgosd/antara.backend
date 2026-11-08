@@ -62,6 +62,16 @@ export const storage = {
     return true
   },
 
+  /**
+   * Actualiza campos del usuario en sesión sin perder el token.
+   * @param {object} parcial
+   */
+  updateUser(parcial) {
+    const actual = storage.getUser()
+    if (!actual) return false
+    return storage.set(STORAGE_KEYS.USER, { ...actual, ...parcial })
+  },
+
   getVolume(defaultValue = 0.8) {
     const guardado = storage.get(STORAGE_KEYS.VOLUME)
     if (guardado === null || guardado === '') return defaultValue

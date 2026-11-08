@@ -1,6 +1,7 @@
 using AntaraSoft.Domain.Entities;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,9 @@ namespace AntaraSoft.Application.Contracts.Services
         Task CrearUsuario(Usuario usuario);
         Task<Usuario> ObtenerUsuario(Guid id);
         Task<List<Usuario>> ObtenerTodosUsuarios();
+        Task<Usuario> ActualizarUsuario(Usuario usuario);
+        Task EliminarUsuario(Guid id);
+        Task CambiarPassword(Guid id, string passwordActual, string passwordNueva);
         Task<bool> ExisteAdministrador();
         Task<bool> TieneAdministrador();
         Task<int> ContarUsuarios();
@@ -77,6 +81,8 @@ namespace AntaraSoft.Application.Contracts.Services
         Task<Playlist> ObtenerPlaylist(Guid id);
         Task<List<Playlist>> ObtenerTodasPlaylists(Guid usuarioId);
         Task<List<Playlist>> ObtenerTodosPlaylistDeUsuario(Guid userId);
+        Task<List<PlaylistResumenDto>> ObtenerResumenes();
+        Task<List<PistaBibliotecaDto>> ObtenerPistasDePlaylist(Guid playlistId);
         Task CrearPlaylist(Playlist playlist);
         Task EliminarPlaylist(Guid id);
         Task EditarPlaylist(Playlist playlist);
@@ -106,6 +112,60 @@ namespace AntaraSoft.Application.Contracts.Services
         EscaneoAudioDto ObtenerActual();
         EscaneoAudioDto Obtener(Guid id);
         bool Cancelar(Guid id);
+
+        /// <summary>
+        /// Registra un archivo de audio concreto reutilizando el enriquecido de
+        /// metadatos del escaneo (alta de album, genero, portada y letra).
+        /// </summary>
+        Task<EscaneoAudioResultadoDto> ImportarArchivoAsync(string archivo, Guid usuarioId, CancellationToken cancellationToken = default);
+    }
+
+    public interface ISubidaPistaService
+    {
+        /// <summary>Rutas activas que pueden usarse como destino de una subida.</summary>
+        Task<List<RutaSubidaDto>> ObtenerRutasAsync();
+
+        /// <summary>
+        /// Guarda el archivo dentro de la ruta indicada (o la predeterminada) y lo
+        /// registra en la biblioteca. Solo acepta extensiones de audio.
+        /// </summary>
+        Task<SubidaPistaDto> SubirAsync(
+            Guid? rutaId,
+            string subcarpeta,
+            string nombreArchivo,
+            Stream contenido,
+            Guid usuarioId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Descarga el audio de un enlace de YouTube en la ruta indicada (o la
+        /// predeterminada) y lo registra en la biblioteca.
+        /// </summary>
+        Task<SubidaPistaDto> SubirDesdeUrlAsync(
+            Guid? rutaId,
+            string subcarpeta,
+            string url,
+            Guid usuarioId,
+            CancellationToken cancellationToken = default);
+    }
+
+    /// <summary>Resultado de descargar el audio de un enlace externo.</summary>
+    public class DescargaAudio
+    {
+        public string Archivo { get; set; }
+        public string Titulo { get; set; }
+    }
+
+    public interface IDescargadorYouTube
+    {
+        /// <summary>Indica si la URL pertenece a un dominio de YouTube admitido.</summary>
+        bool EsUrlYouTube(string url);
+
+        /// <summary>
+        /// Descarga el audio del enlace dentro del directorio indicado, siempre en
+        /// un formato de audio, y devuelve la ruta final del archivo.
+        /// </summary>
+        Task<DescargaAudio> DescargarAsync(string url, string directorio, CancellationToken cancellationToken = default);
     }
 
     public interface ISistemaService
@@ -122,11 +182,18 @@ namespace AntaraSoft.Application.Contracts.Services
         Task<List<MetadatosCandidatoDto>> BuscarAsync(string consulta, string proveedor, CancellationToken cancellationToken);
         Task<PistaBibliotecaDto> ActualizarAsync(Guid pistaId, string idExterno, Guid usuarioId, CancellationToken cancellationToken);
         Task<PistaBibliotecaDto> ActualizarAsync(Guid pistaId, string idExterno, string proveedor, Guid usuarioId, CancellationToken cancellationToken);
+
+        /// <summary>Proveedores habilitados, tal como quedaron configurados.</summary>
+        List<ProveedorMetadatosDto> ObtenerProveedores();
     }
 
     public interface IMetadataProvider
     {
+        /// <summary>Identificador del proveedor (viene de la configuración).</summary>
         string Nombre { get; }
+
+        /// <summary>Nombre visible en el panel (viene de la configuración).</summary>
+        string Etiqueta { get; }
         Task<MetadatosAudio> BuscarAsync(string artista, string titulo, string carpeta, CancellationToken cancellationToken);
         Task<List<MetadatosAudio>> BuscarCandidatosAsync(string consulta, CancellationToken cancellationToken);
         Task<MetadatosAudio> ObtenerPorIdAsync(string idExterno, CancellationToken cancellationToken);

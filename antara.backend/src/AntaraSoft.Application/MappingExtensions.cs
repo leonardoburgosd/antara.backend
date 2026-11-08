@@ -13,9 +13,11 @@ namespace AntaraSoft.Application
                 Nombre = usuario.Nombre,
                 FechaNacimiento = usuario.FechaNacimiento,
                 Genero = usuario.Genero,
+                EstaActivo = usuario.EstaActivo,
                 FechaRegistro = usuario.FechaRegistro,
                 Pais = usuario.Pais,
-                FotoPerfil = usuario.FotoPerfil
+                FotoPerfil = usuario.FotoPerfil,
+                Tipo = usuario.Tipo
             };
         }
 

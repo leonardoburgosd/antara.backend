@@ -400,7 +400,11 @@ FodyWeavers.xsd
 
 *.jfm
 /.sonarqube
+# Generado por scripts/montar-unidades.sh (depende de las unidades del host)
+docker-compose.unidades.yml
 .cloud-attachments
 .freebuff
 .github
 music
+# Cookies de YouTube para yt-dlp (nunca deben versionarse)
+cookies/

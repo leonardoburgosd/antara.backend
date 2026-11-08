@@ -164,7 +164,8 @@ namespace AntaraSoft.Api
                         FOR r IN
                             SELECT oid::regprocedure AS signature
                             FROM pg_proc
-                            WHERE proname IN ('VerificarEmailUnico', 'CrearUsuario', 'ObtenerUsuario', 'Login', 'ObtenerTodosUsuarios')
+                            WHERE proname IN ('VerificarEmailUnico', 'CrearUsuario', 'ActualizarUsuario', 'ObtenerUsuario', 'Login', 'ObtenerTodosUsuarios',
+                                              'ObtenerAlbum', 'ObtenerTodosAlbumes', 'ObtenerTodosAlbumesDeUsuarios', 'EditarAlbum')
                         LOOP
                             EXECUTE 'DROP FUNCTION ' || r.signature;
                         END LOOP;
@@ -188,6 +189,28 @@ namespace AntaraSoft.Api
                         INSERT INTO ""Usuario""(""Id"", ""Email"", ""Password"", ""Nombre"", ""FechaNacimiento"", ""Genero"", ""EstaActivo"", ""FechaRegistro"", ""Pais"", ""FotoPerfil"", ""Tipo"")
                         VALUES (p_Id, p_Email, p_Password, p_Nombre, p_FechaNacimiento, p_Genero, p_EstaActivo, p_FechaRegistro, p_Pais, p_FotoPerfil, p_Tipo);
                         RETURN QUERY SELECT p_Id;
+                    END;
+                    $$ LANGUAGE plpgsql;
+
+                    -- ActualizarUsuario (p_Password NULL conserva la contraseña actual)
+                    CREATE OR REPLACE FUNCTION ""ActualizarUsuario""(p_Id UUID, p_Email VARCHAR, p_Nombre VARCHAR, p_FechaNacimiento TIMESTAMP, p_Genero CHAR, p_EstaActivo BOOLEAN, p_Pais VARCHAR, p_FotoPerfil TEXT, p_Tipo VARCHAR, p_Password VARCHAR)
+                    RETURNS TABLE(""Id"" UUID, ""Email"" VARCHAR, ""Password"" VARCHAR, ""Nombre"" VARCHAR, ""FechaNacimiento"" TIMESTAMP, ""Genero"" CHAR, ""EstaActivo"" BOOLEAN, ""FechaRegistro"" TIMESTAMP, ""Pais"" VARCHAR, ""FotoPerfil"" TEXT, ""Tipo"" VARCHAR)
+                    AS $$
+                    BEGIN
+                        UPDATE ""Usuario"" SET
+                            ""Email"" = p_Email,
+                            ""Nombre"" = p_Nombre,
+                            ""FechaNacimiento"" = p_FechaNacimiento,
+                            ""Genero"" = p_Genero,
+                            ""EstaActivo"" = p_EstaActivo,
+                            ""Pais"" = p_Pais,
+                            ""FotoPerfil"" = p_FotoPerfil,
+                            ""Tipo"" = COALESCE(p_Tipo, ""Usuario"".""Tipo""),
+                            ""Password"" = COALESCE(p_Password, ""Usuario"".""Password"")
+                        WHERE ""Usuario"".""Id"" = p_Id;
+
+                        RETURN QUERY SELECT u.""Id"", u.""Email"", u.""Password"", u.""Nombre"", u.""FechaNacimiento"", u.""Genero"", u.""EstaActivo"", u.""FechaRegistro"", u.""Pais"", u.""FotoPerfil"", u.""Tipo""
+                        FROM ""Usuario"" u WHERE u.""Id"" = p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
 
@@ -226,7 +249,7 @@ namespace AntaraSoft.Api
                     RETURNS TABLE(""Id"" UUID)
                     AS $$
                     BEGIN
-                        DELETE FROM ""Usuario"" WHERE ""Id"" = p_Id;
+                        DELETE FROM ""Usuario"" WHERE ""Usuario"".""Id"" = p_Id;
                         RETURN QUERY SELECT p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -253,39 +276,56 @@ namespace AntaraSoft.Api
                     RETURNS TABLE(""Id"" UUID)
                     AS $$
                     BEGIN
-                        DELETE FROM ""Album"" WHERE ""Id"" = p_Id;
+                        DELETE FROM ""Album"" WHERE ""Album"".""Id"" = p_Id;
                         RETURN QUERY SELECT p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
 
-                    -- EditarAlbum
-                    CREATE OR REPLACE FUNCTION ""EditarAlbum""(p_Id UUID, p_Nombre VARCHAR, p_Descripcion TEXT, p_EstaPublicado BOOLEAN, p_FechaPublicacion TIMESTAMP, p_PortadaUrl TEXT, p_UsuarioId UUID, p_EstaActivo BOOLEAN)
+                    -- EditarAlbum (incluye publicación y estado para el CRUD del panel)
+                    CREATE OR REPLACE FUNCTION ""EditarAlbum""(p_Id UUID, p_Nombre VARCHAR, p_Descripcion TEXT, p_PortadaUrl TEXT, p_EstaPublicado BOOLEAN, p_EstaActivo BOOLEAN, p_Artista VARCHAR)
                     RETURNS TABLE(""Id"" UUID)
                     AS $$
                     BEGIN
-                        UPDATE ""Album"" SET ""Nombre"" = p_Nombre, ""Descripcion"" = p_Descripcion, ""EstaPublicado"" = p_EstaPublicado, 
-                        ""FechaPublicacion"" = p_FechaPublicacion, ""PortadaUrl"" = p_PortadaUrl, ""UsuarioId"" = p_UsuarioId, ""EstaActivo"" = p_EstaActivo
-                        WHERE ""Id"" = p_Id;
+                        UPDATE ""Album"" SET
+                            ""Nombre"" = p_Nombre,
+                            ""Descripcion"" = p_Descripcion,
+                            ""PortadaUrl"" = p_PortadaUrl,
+                            ""EstaPublicado"" = p_EstaPublicado,
+                            ""EstaActivo"" = p_EstaActivo,
+                            ""Artista"" = p_Artista,
+                            ""FechaPublicacion"" = CASE WHEN p_EstaPublicado AND ""Album"".""FechaPublicacion"" IS NULL
+                                THEN NOW() ELSE ""Album"".""FechaPublicacion"" END
+                        WHERE ""Album"".""Id"" = p_Id;
                         RETURN QUERY SELECT p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
 
                     -- ObtenerAlbum
                     CREATE OR REPLACE FUNCTION ""ObtenerAlbum""(p_Id UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""Descripcion"" TEXT, ""EstaPublicado"" BOOLEAN, ""FechaPublicacion"" TIMESTAMP, ""PortadaUrl"" TEXT, ""UsuarioId"" UUID, ""EstaActivo"" BOOLEAN)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""Descripcion"" TEXT, ""EstaPublicado"" BOOLEAN, ""FechaPublicacion"" TIMESTAMP, ""PortadaUrl"" TEXT, ""UsuarioId"" UUID, ""EstaActivo"" BOOLEAN, ""Artista"" VARCHAR, ""FuenteMetadatos"" VARCHAR, ""IdExternoMetadatos"" VARCHAR)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT a.""Id"", a.""Nombre"", a.""Descripcion"", a.""EstaPublicado"", a.""FechaPublicacion"", a.""PortadaUrl"", a.""UsuarioId"", a.""EstaActivo""
+                        RETURN QUERY SELECT a.""Id"", a.""Nombre"", a.""Descripcion"", a.""EstaPublicado"", a.""FechaPublicacion"", a.""PortadaUrl"", a.""UsuarioId"", a.""EstaActivo"", a.""Artista"", a.""FuenteMetadatos"", a.""IdExternoMetadatos""
                         FROM ""Album"" a WHERE a.""Id"" = p_Id;
+                    END;
+                    $$ LANGUAGE plpgsql;
+
+                    -- ObtenerTodosAlbumes
+                    CREATE OR REPLACE FUNCTION ""ObtenerTodosAlbumes""()
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""Descripcion"" TEXT, ""EstaPublicado"" BOOLEAN, ""FechaPublicacion"" TIMESTAMP, ""PortadaUrl"" TEXT, ""UsuarioId"" UUID, ""EstaActivo"" BOOLEAN, ""Artista"" VARCHAR, ""FuenteMetadatos"" VARCHAR, ""IdExternoMetadatos"" VARCHAR)
+                    AS $$
+                    BEGIN
+                        RETURN QUERY SELECT a.""Id"", a.""Nombre"", a.""Descripcion"", a.""EstaPublicado"", a.""FechaPublicacion"", a.""PortadaUrl"", a.""UsuarioId"", a.""EstaActivo"", a.""Artista"", a.""FuenteMetadatos"", a.""IdExternoMetadatos""
+                        FROM ""Album"" a ORDER BY a.""Nombre"";
                     END;
                     $$ LANGUAGE plpgsql;
 
                     -- ObtenerTodosAlbumesDeUsuarios
                     CREATE OR REPLACE FUNCTION ""ObtenerTodosAlbumesDeUsuarios""(p_UsuarioId UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""Descripcion"" TEXT, ""EstaPublicado"" BOOLEAN, ""FechaPublicacion"" TIMESTAMP, ""PortadaUrl"" TEXT, ""UsuarioId"" UUID, ""EstaActivo"" BOOLEAN)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""Descripcion"" TEXT, ""EstaPublicado"" BOOLEAN, ""FechaPublicacion"" TIMESTAMP, ""PortadaUrl"" TEXT, ""UsuarioId"" UUID, ""EstaActivo"" BOOLEAN, ""Artista"" VARCHAR, ""FuenteMetadatos"" VARCHAR, ""IdExternoMetadatos"" VARCHAR)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT a.""Id"", a.""Nombre"", a.""Descripcion"", a.""EstaPublicado"", a.""FechaPublicacion"", a.""PortadaUrl"", a.""UsuarioId"", a.""EstaActivo""
+                        RETURN QUERY SELECT a.""Id"", a.""Nombre"", a.""Descripcion"", a.""EstaPublicado"", a.""FechaPublicacion"", a.""PortadaUrl"", a.""UsuarioId"", a.""EstaActivo"", a.""Artista"", a.""FuenteMetadatos"", a.""IdExternoMetadatos""
                         FROM ""Album"" a WHERE a.""UsuarioId"" = p_UsuarioId;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -295,7 +335,10 @@ namespace AntaraSoft.Api
                     RETURNS INTEGER
                     AS $$
                     BEGIN
-                        UPDATE ""Album"" SET ""EstaPublicado"" = p_EstaPublicado WHERE ""Id"" = p_Id;
+                        UPDATE ""Album"" SET
+                            ""EstaPublicado"" = p_EstaPublicado,
+                            ""FechaPublicacion"" = CASE WHEN p_EstaPublicado THEN NOW() ELSE ""Album"".""FechaPublicacion"" END
+                        WHERE ""Album"".""Id"" = p_Id;
                         RETURN 1;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -323,7 +366,7 @@ namespace AntaraSoft.Api
                     AS $$
                     BEGIN
                         UPDATE ""Playlist"" SET ""Nombre"" = p_Nombre, ""Descripcion"" = p_Descripcion, ""PortadaUrl"" = p_PortadaUrl, ""UsuarioId"" = p_UsuarioId, ""EstaActivo"" = p_EstaActivo
-                        WHERE ""Id"" = p_Id;
+                        WHERE ""Playlist"".""Id"" = p_Id;
                         RETURN QUERY SELECT p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -333,7 +376,10 @@ namespace AntaraSoft.Api
                     RETURNS TABLE(""Id"" UUID)
                     AS $$
                     BEGIN
-                        DELETE FROM ""Playlist"" WHERE ""Id"" = p_Id;
+                        -- Las canciones de la playlist no se borran: solo se quita la
+                        -- relación. El orden evita depender del ON DELETE de la FK.
+                        DELETE FROM ""PlaylistPista"" WHERE ""PlaylistPista"".""PlaylistId"" = p_Id;
+                        DELETE FROM ""Playlist"" WHERE ""Playlist"".""Id"" = p_Id;
                         RETURN QUERY SELECT p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -448,13 +494,21 @@ namespace AntaraSoft.Api
                     END;
                     $$ LANGUAGE plpgsql;
 
-                    -- AgregarPistaAPlaylist
+                    -- AgregarPistaAPlaylist (ignora duplicados: una canción puede
+                    -- estar en varias playlists, y una playlist mezcla artistas)
                     CREATE OR REPLACE FUNCTION ""AgregarPistaAPlaylist""(p_PlaylistId UUID, p_PistaId UUID)
                     RETURNS TABLE(""PlaylistId"" UUID, ""PistaId"" UUID, ""FechaRegistro"" TIMESTAMP)
                     AS $$
                     BEGIN
-                        INSERT INTO ""PlaylistPista""(""PlaylistId"", ""PistaId"", ""FechaRegistro"") VALUES (p_PlaylistId, p_PistaId, NOW());
-                        RETURN QUERY SELECT p_PlaylistId, p_PistaId, NOW()::TIMESTAMP;
+                        INSERT INTO ""PlaylistPista""(""PlaylistId"", ""PistaId"", ""FechaRegistro"")
+                        VALUES (p_PlaylistId, p_PistaId, NOW())
+                        -- Se referencia la PK por nombre: los parámetros de salida de
+                        -- la función hacen ambigua la lista de columnas.
+                        ON CONFLICT ON CONSTRAINT ""PlaylistPista_pkey"" DO NOTHING;
+
+                        RETURN QUERY SELECT pp.""PlaylistId"", pp.""PistaId"", pp.""FechaRegistro""
+                        FROM ""PlaylistPista"" pp
+                        WHERE pp.""PlaylistId"" = p_PlaylistId AND pp.""PistaId"" = p_PistaId;
                     END;
                     $$ LANGUAGE plpgsql;
 

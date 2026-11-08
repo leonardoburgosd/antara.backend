@@ -32,26 +32,35 @@ namespace AntaraSoft.Infrastructure.Metadata
 
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly AppSettings _settings;
+        private readonly ProveedorMetadatosConfig _config;
         private readonly ApiRateLimiter _limiter = new(TimeSpan.FromMilliseconds(400));
         private readonly ConcurrentDictionary<string, TheAudioDbAlbum> _albumes = new();
         private readonly ConcurrentDictionary<string, TheAudioDbArtist> _artistas = new();
 
-        public TheAudioDbMetadataProvider(IHttpClientFactory httpClientFactory, IOptions<AppSettings> options)
+        public TheAudioDbMetadataProvider(
+            IHttpClientFactory httpClientFactory,
+            AppSettings settings,
+            ProveedorMetadatosConfig config)
         {
             _httpClientFactory = httpClientFactory;
-            _settings = options?.Value ?? new AppSettings();
+            _settings = settings ?? new AppSettings();
+            _config = config ?? new ProveedorMetadatosConfig { Tipo = "theaudiodb" };
         }
 
-        public string Nombre => "theaudiodb";
+        public string Nombre =>
+            string.IsNullOrWhiteSpace(_config.Nombre) ? "theaudiodb" : _config.Nombre.Trim();
+
+        public string Etiqueta =>
+            string.IsNullOrWhiteSpace(_config.Etiqueta) ? Nombre : _config.Etiqueta.Trim();
 
         private string BaseUrl
         {
             get
             {
-                if (!string.IsNullOrWhiteSpace(_settings.TheAudioDbApiBase))
-                    return _settings.TheAudioDbApiBase.TrimEnd('/');
+                if (!string.IsNullOrWhiteSpace(_config.BaseUrl))
+                    return _config.BaseUrl.TrimEnd('/');
 
-                var key = string.IsNullOrWhiteSpace(_settings.TheAudioDbApiKey) ? "123" : _settings.TheAudioDbApiKey.Trim();
+                var key = string.IsNullOrWhiteSpace(_config.ApiKey) ? "123" : _config.ApiKey.Trim();
                 return $"https://www.theaudiodb.com/api/v1/json/{key}";
             }
         }
@@ -354,10 +363,10 @@ namespace AntaraSoft.Infrastructure.Metadata
             return null;
         }
 
-        private static MetadatosAudio SinResultado() => new()
+        private MetadatosAudio SinResultado() => new()
         {
             Encontrado = false,
-            Fuente = "theaudiodb"
+            Fuente = Nombre
         };
 
         private static int ParsearAnio(string valor)

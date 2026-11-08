@@ -59,6 +59,41 @@ namespace AntaraSoft.Infrastructure.Persistence
             }
         }
 
+        /// <summary>
+        /// Actualiza los datos del usuario. Si <see cref="Usuario.Password"/> llega
+        /// vacío, la función conserva la contraseña actual.
+        /// </summary>
+        public async Task ActualizarUsuario(Usuario usuario)
+        {
+            try
+            {
+                // El panel envía la fecha en ISO con zona ("...Z"); la columna y la
+                // función usan TIMESTAMP sin zona, así que se normaliza el Kind.
+                var fechaNacimiento = usuario.FechaNacimiento == default
+                    ? usuario.FechaNacimiento
+                    : DateTime.SpecifyKind(usuario.FechaNacimiento, DateTimeKind.Unspecified);
+
+                await _dapper.QueryWithReturn<Usuario>("ActualizarUsuario", new
+                {
+                    usuario.Id,
+                    usuario.Email,
+                    usuario.Nombre,
+                    FechaNacimiento = fechaNacimiento,
+                    usuario.Genero,
+                    usuario.EstaActivo,
+                    usuario.Pais,
+                    usuario.FotoPerfil,
+                    usuario.Tipo,
+                    Password = string.IsNullOrWhiteSpace(usuario.Password) ? null : usuario.Password
+                });
+            }
+            catch (Exception err)
+            {
+                Console.Write(err);
+                throw;
+            }
+        }
+
         public async Task EliminarFisicoUsuario(Guid id)
         {
             try

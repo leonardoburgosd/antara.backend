@@ -21,9 +21,3 @@ export const TRACK_FILTERS = [
   { id: 'sin-letra', label: 'Sin letra' },
 ]
 
-export const METADATA_PROVIDERS = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'deezer', label: 'Deezer' },
-  { id: 'theaudiodb', label: 'TheAudioDB' },
-]
-

@@ -3,6 +3,7 @@ import { rutaAudioService } from '../services/rutaAudioService'
 
 export function useRutasAudio({ onToast = () => {} } = {}) {
   const [rutas, setRutas] = useState([])
+  const [unidadesHost, setUnidadesHost] = useState({ raiz: '/host', unidades: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -16,8 +17,12 @@ export function useRutasAudio({ onToast = () => {} } = {}) {
     setLoading(true)
     setError('')
     try {
-      const data = await rutaAudioService.getRutas()
+      const [data, unidades] = await Promise.all([
+        rutaAudioService.getRutas(),
+        rutaAudioService.getUnidadesHost().catch(() => ({ raiz: '/host', unidades: [] })),
+      ])
       setRutas(data)
+      setUnidadesHost(unidades)
     } catch (err) {
       setError(err.message || 'Error de conexión con el servidor.')
     } finally {
@@ -131,6 +136,7 @@ export function useRutasAudio({ onToast = () => {} } = {}) {
 
   return {
     rutas,
+    unidadesHost,
     loading,
     error,
     cargar,

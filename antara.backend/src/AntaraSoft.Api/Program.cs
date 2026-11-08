@@ -4,6 +4,7 @@ using AntaraSoft.Application;
 using AntaraSoft.Application.Contracts.Repository;
 using AntaraSoft.Application.Contracts.Services;
 using AntaraSoft.Application.Services;
+using AntaraSoft.Infrastructure.Media;
 using AntaraSoft.Infrastructure.Metadata;
 using AntaraSoft.Infrastructure.Persistence;
 using AntaraSoft.Infrastructure.Security;
@@ -12,10 +13,12 @@ using AntaraSoft.Infrastructure.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Generic;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using System;
 using System.Linq;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,11 +57,94 @@ builder.Services.AddHttpClient("metadatos", cliente =>
     cliente.Timeout = TimeSpan.FromSeconds(60);
 });
 
-builder.Services.AddSingleton<IMetadataProvider, DeezerMetadataProvider>();
-builder.Services.AddSingleton<IMetadataProvider, TheAudioDbMetadataProvider>();
-builder.Services.AddSingleton<ILetrasProvider, LyricsOvhProvider>();
+// Proveedores de metadatos y letras: se construyen desde la configuración
+// (AppSettings:MetadatosProveedores / LetrasProveedor). Agregar, deshabilitar o
+// reordenar proveedores no requiere tocar código ni recompilar adaptadores.
+var appSettingsInicial = builder.Configuration.GetSection("AppSettings").Get<AppSettings>() ?? new AppSettings();
+
+// METADATOS_PROVEEDORES_JSON permite redefinir la lista completa desde una sola
+// variable de entorno (por ejemplo en .env), sin editar docker-compose.yml ni
+// recompilar. Tiene prioridad sobre AppSettings:MetadatosProveedores.
+List<ProveedorMetadatosConfig> proveedoresConfigurados = null;
+var proveedoresJson = builder.Configuration["METADATOS_PROVEEDORES_JSON"];
+if (!string.IsNullOrWhiteSpace(proveedoresJson))
+{
+    try
+    {
+        proveedoresConfigurados = JsonSerializer.Deserialize<List<ProveedorMetadatosConfig>>(
+            proveedoresJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+    catch (JsonException err)
+    {
+        Console.Error.WriteLine(
+            $"METADATOS_PROVEEDORES_JSON invalido ({err.Message}). Se usa AppSettings:MetadatosProveedores.");
+    }
+}
+
+proveedoresConfigurados ??= appSettingsInicial.MetadatosProveedores ?? new List<ProveedorMetadatosConfig>();
+
+var proveedoresMetadatos = (proveedoresConfigurados.Count > 0
+        ? proveedoresConfigurados
+        : AppSettings.Predeterminados())
+    .Where(proveedor => proveedor != null && proveedor.Habilitado)
+    .OrderBy(proveedor => proveedor.Prioridad)
+    .ToList();
+
+foreach (var proveedor in proveedoresMetadatos)
+{
+    var configurado = proveedor;
+
+    switch ((configurado.Tipo ?? string.Empty).Trim().ToLowerInvariant())
+    {
+        case "deezer":
+            builder.Services.AddSingleton<IMetadataProvider>(sp => new DeezerMetadataProvider(
+                sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, configurado));
+            break;
+
+        case "theaudiodb":
+            builder.Services.AddSingleton<IMetadataProvider>(sp => new TheAudioDbMetadataProvider(
+                sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, configurado));
+            break;
+
+        case "musicbrainz":
+            builder.Services.AddSingleton<IMetadataProvider>(sp => new MusicBrainzMetadataProvider(
+                sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, configurado));
+            break;
+
+        case "itunes":
+            builder.Services.AddSingleton<IMetadataProvider>(sp => new ItunesMetadataProvider(
+                sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, configurado));
+            break;
+
+        default:
+            Console.Error.WriteLine(
+                $"Proveedor de metadatos '{configurado.Nombre}' omitido: tipo '{configurado.Tipo}' no soportado.");
+            break;
+    }
+}
+
+if (appSettingsInicial.LetrasProveedor == null || appSettingsInicial.LetrasProveedor.Habilitado)
+{
+    var letrasConfig = appSettingsInicial.LetrasProveedor ?? new ProveedorLetrasConfig();
+    builder.Services.AddSingleton<ILetrasProvider>(sp => new LyricsOvhProvider(
+        sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, letrasConfig));
+}
 builder.Services.AddSingleton<EnriquecedorMetadatos>();
 builder.Services.AddSingleton<IEscaneoAudioService, EscaneoAudioService>();
+builder.Services.AddTransient<ISubidaPistaService, SubidaPistaService>();
+builder.Services.AddSingleton<IDescargadorYouTube, YouTubeAudioDownloader>();
+
+// Las canciones pueden pesar cientos de MB: el límite por defecto de Kestrel
+// (30 MB) rompería la subida. Se ajusta con AppSettings__SubidaAudioMaxMb.
+var subidaMaxBytes = Math.Max(1, builder.Configuration.GetValue<int?>
+    ("AppSettings:SubidaAudioMaxMb") ?? 2048) * 1024L * 1024L;
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(opciones =>
+{
+    opciones.MultipartBodyLengthLimit = subidaMaxBytes;
+    opciones.ValueLengthLimit = int.MaxValue;
+});
+builder.WebHost.ConfigureKestrel(opciones => opciones.Limits.MaxRequestBodySize = subidaMaxBytes);
 
 builder.Services.AddTransient<ITokenService>(sp =>
 {

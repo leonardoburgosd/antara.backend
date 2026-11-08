@@ -10,5 +10,6 @@ export { Spinner } from './Spinner'
 export { Toast } from './Toast'
 export { ErrorBanner } from './ErrorBanner'
 export { ConfirmDialog } from './ConfirmDialog'
+export { Pagination } from './Pagination'
 export * from './Icons'
 

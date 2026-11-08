@@ -234,6 +234,13 @@ export const IconUpload = (props) => (
   </IconBase>
 )
 
+export const IconLink = (props) => (
+  <IconBase {...props}>
+    <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.4 4.53" />
+    <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.43-1.43" />
+  </IconBase>
+)
+
 export const IconUserPlus = (props) => (
   <IconBase {...props}>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />

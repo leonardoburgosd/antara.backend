@@ -7,6 +7,7 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
   const consultaInicial = [pista.interprete, pista.nombre].filter(Boolean).join(' ').trim()
   const [cadena, setCadena] = useState(consultaInicial)
   const [proveedor, setProveedor] = useState('todos')
+  const [proveedores, setProveedores] = useState([])
   const [candidatos, setCandidatos] = useState([])
   const [buscando, setBuscando] = useState(false)
   const [aplicando, setAplicando] = useState(false)
@@ -42,6 +43,21 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
   useEffect(() => {
     if (consultaInicial) buscar(consultaInicial, 'todos')
   }, [consultaInicial, buscar])
+
+  // Los proveedores los define la configuración del backend: el panel no
+  // mantiene una lista propia de nombres ni etiquetas.
+  useEffect(() => {
+    let vigente = true
+    pistaService
+      .getMetadataProviders()
+      .then((lista) => {
+        if (vigente) setProveedores(lista)
+      })
+      .catch(() => {})
+    return () => {
+      vigente = false
+    }
+  }, [])
 
   useEffect(() => {
     const alPresionar = (evento) => {
@@ -90,6 +106,19 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
 
   const candidatoElegido = candidatos.find((candidato) => candidato.idExterno === seleccionado) || null
 
+  const opcionesProveedor = [
+    { id: 'todos', label: 'Todos' },
+    ...proveedores.map((item) => ({ id: item.nombre, label: item.etiqueta || item.nombre })),
+  ]
+
+  const nombresProveedores = proveedores.map((item) => item.etiqueta || item.nombre)
+  const destinoBusqueda =
+    proveedor === 'todos'
+      ? nombresProveedores.length > 0
+        ? nombresProveedores.join(' y ')
+        : 'los proveedores configurados'
+      : opcionesProveedor.find((item) => item.id === proveedor)?.label || proveedor
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 p-4 backdrop-blur-sm sm:items-center"
@@ -124,11 +153,7 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
             <div className="flex items-center gap-2 text-xs">
               <span className="text-[10px] uppercase tracking-wider text-white/40">Proveedor:</span>
               <div className="flex gap-1 rounded-full border border-white/10 bg-black/40 p-1">
-                {[
-                  { id: 'todos', label: 'Todos' },
-                  { id: 'deezer', label: 'Deezer' },
-                  { id: 'theaudiodb', label: 'TheAudioDB' },
-                ].map((item) => {
+                {opcionesProveedor.map((item) => {
                   const activo = proveedor === item.id
                   return (
                     <button
@@ -173,14 +198,9 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
           </div>
 
           <p className="text-[11px] leading-5 text-white/35">
-            Busca la versión correcta en{' '}
-            {proveedor === 'todos'
-              ? 'Deezer y TheAudioDB'
-              : proveedor === 'theaudiodb'
-                ? 'TheAudioDB'
-                : 'Deezer'}{' '}
-            y selecciona una coincidencia. Al aplicarla se actualizarán título, artista, álbum,
-            portada, año, género, duración y letra.
+            Busca la versión correcta en {destinoBusqueda} y selecciona una coincidencia. Al
+            aplicarla se actualizarán título, artista, álbum, portada, año, género, duración y
+            letra.
           </p>
 
           {error && (
@@ -210,7 +230,9 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
             <div className="max-h-[38vh] space-y-2 overflow-y-auto pr-1">
               {candidatos.map((candidato) => {
                 const activo = candidato.idExterno === seleccionado
-                const esTheAudioDb = candidato.fuente?.toLowerCase() === 'theaudiodb'
+                const etiquetaFuente =
+                  proveedores.find((item) => item.nombre === candidato.fuente)?.etiqueta ||
+                  candidato.fuente
                 return (
                   <button
                     key={`${candidato.fuente}-${candidato.idExterno}`}
@@ -251,14 +273,8 @@ export const ModalMetadatos = ({ pista, onCerrar, onActualizada, onToast = () =>
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1.5 pl-2">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-wider ${
-                          esTheAudioDb
-                            ? 'border-indigo-400/30 bg-indigo-500/10 text-indigo-300'
-                            : 'border-amber-400/30 bg-amber-500/10 text-amber-300'
-                        }`}
-                      >
-                        {candidato.fuente || 'Deezer'}
+                      <span className="rounded-full border border-white/15 bg-white/[0.06] px-2 py-0.5 text-[8px] uppercase tracking-wider text-white/60">
+                        {etiquetaFuente}
                       </span>
                       <span
                         className={`flex h-5 w-5 items-center justify-center rounded-full border ${

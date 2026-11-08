@@ -60,6 +60,9 @@ namespace AntaraSoft.Infrastructure.Metadata
                 };
             }
 
+            if (_letrasProvider == null)
+                return metadatos;
+
             var artistaParaLetra = metadatos.ArtistaPrincipal ?? artista;
             var tituloParaLetra = string.IsNullOrWhiteSpace(metadatos.Titulo) ? titulo : metadatos.Titulo;
 

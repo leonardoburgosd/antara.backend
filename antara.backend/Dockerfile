@@ -30,7 +30,15 @@ WORKDIR /app
 
 COPY --from=publish /app/publish .
 
-RUN mkdir -p /app/wwwroot/uploads /music /music/flac
+# Descarga de audio de YouTube: yt-dlp (binario autónomo) y ffmpeg para
+# convertir la pista a MP3 antes de guardarla en la ruta elegida.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
+    && curl -fsSL -o /usr/local/bin/yt-dlp \
+       https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux \
+    && chmod +x /usr/local/bin/yt-dlp \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/wwwroot/uploads /music /music/flac
 
 EXPOSE 8080
 EXPOSE 8081

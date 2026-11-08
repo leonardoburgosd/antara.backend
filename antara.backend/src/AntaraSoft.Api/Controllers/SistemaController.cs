@@ -2,8 +2,10 @@ using AntaraSoft.Api.Filters;
 using AntaraSoft.Application;
 using AntaraSoft.Application.Contracts.Services;
 using AntaraSoft.Domain.Entities;
+using AntaraSoft.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AntaraSoft.Api.Controllers
@@ -18,11 +20,16 @@ namespace AntaraSoft.Api.Controllers
     {
         private readonly IRegistrarUsuarioService _registrarUsuarioService;
         private readonly AdminBootstrapState _estado;
+        private readonly HostPathResolver _rutasHost;
 
-        public SistemaController(IRegistrarUsuarioService registrarUsuarioService, AdminBootstrapState estado)
+        public SistemaController(
+            IRegistrarUsuarioService registrarUsuarioService,
+            AdminBootstrapState estado,
+            HostPathResolver rutasHost)
         {
             _registrarUsuarioService = registrarUsuarioService;
             _estado = estado;
+            _rutasHost = rutasHost;
         }
 
         [HttpGet("health")]
@@ -57,6 +64,24 @@ namespace AntaraSoft.Api.Controllers
                     Estado = "Error de conexion"
                 });
             }
+        }
+
+        /// <summary>
+        /// Unidades del host que la API puede leer ahora mismo. Se calculan desde
+        /// los montajes del contenedor, así el panel no necesita conocer letras
+        /// de unidad de antemano.
+        /// </summary>
+        [HttpGet("unidades-host")]
+        [TokenAuthorize("admin", "administrador")]
+        [ProducesResponseType(typeof(UnidadesHostDto), 200)]
+        [ProducesResponseType(401)]
+        public ActionResult<UnidadesHostDto> GetUnidadesHost()
+        {
+            return Ok(new UnidadesHostDto
+            {
+                Raiz = _rutasHost.MountRoot,
+                Unidades = _rutasHost.UnidadesMontadas().ToList()
+            });
         }
 
         [HttpPost("crea-primero-admin")]

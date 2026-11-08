@@ -35,6 +35,10 @@ import {
 
 import { RutasAudioPage } from '../../rutas-audio'
 import { PistasPage } from '../../pistas'
+import { UsuariosPage } from '../../usuarios'
+import { AlbumesPage } from '../../albumes'
+import { PlaylistsPage } from '../../playlists'
+import { ConfiguracionPage } from '../../configuracion'
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: IconGrid },
@@ -50,7 +54,7 @@ export const DashboardPage = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const { user, dashboard, health, loading, error, refetch } = useDashboard()
+  const { user, refreshUser, dashboard, health, loading, error, refetch } = useDashboard()
 
   const [activeNav, setActiveNav] = useState(() => {
     const seccion = searchParams.get('seccion')
@@ -78,7 +82,8 @@ export const DashboardPage = () => {
   const handleNav = (id) => {
     setActiveNav(id)
     navigate(id === 'dashboard' ? '/dashboard' : `/dashboard?seccion=${id}`, { replace: true })
-    if (id !== 'dashboard' && id !== 'rutas' && id !== 'pistas') {
+    const seccionesListas = ['dashboard', 'rutas', 'pistas', 'usuarios', 'albumes', 'playlists', 'configuracion']
+    if (!seccionesListas.includes(id)) {
       const item = NAV_ITEMS.find((nav) => nav.id === id)
       setToast(`${item?.label ?? 'Sección'}: próximamente.`)
     }
@@ -257,6 +262,14 @@ export const DashboardPage = () => {
                   <RutasAudioPage onToast={setToast} />
                 ) : activeNav === 'pistas' ? (
                   <PistasPage onToast={setToast} onEscanear={() => handleNav('rutas')} />
+                ) : activeNav === 'usuarios' ? (
+                  <UsuariosPage onToast={setToast} />
+                ) : activeNav === 'albumes' ? (
+                  <AlbumesPage onToast={setToast} />
+                ) : activeNav === 'playlists' ? (
+                  <PlaylistsPage onToast={setToast} />
+                ) : activeNav === 'configuracion' ? (
+                  <ConfiguracionPage onToast={setToast} onPerfilActualizado={refreshUser} />
                 ) : (
                   <ComingSoon item={activeItem} />
                 )}
@@ -291,7 +304,7 @@ export const DashboardPage = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setToast('La creación de álbumes estará disponible pronto.')}
+                        onClick={() => handleNav('albumes')}
                         className="flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
                       >
                         <IconPlus className="h-4 w-4" />
@@ -337,8 +350,7 @@ export const DashboardPage = () => {
                 {/* Recent Albums */}
                 <RecentAlbums
                   recentAlbums={dashboard?.albumesRecientes ?? []}
-                  loading={loading}
-                  onViewAll={() => setToast('La gestión de álbumes estará disponible pronto.')}
+                  loading={loading}                      onViewAll={() => handleNav('albumes')}
                 />
               </>
             )}

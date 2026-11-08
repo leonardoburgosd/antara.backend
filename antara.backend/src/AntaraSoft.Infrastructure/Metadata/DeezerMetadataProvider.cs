@@ -28,23 +28,34 @@ namespace AntaraSoft.Infrastructure.Metadata
 
         private static readonly Regex Espacios = new(@"\s+", RegexOptions.Compiled);
 
+        private const string BaseUrlPorDefecto = "https://api.deezer.com";
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly AppSettings _settings;
+        private readonly ProveedorMetadatosConfig _config;
         private readonly ApiRateLimiter _limiter = new(TimeSpan.FromMilliseconds(220));
         private readonly ConcurrentDictionary<long, DeezerAlbum> _albumes = new();
 
-        public DeezerMetadataProvider(IHttpClientFactory httpClientFactory, IOptions<AppSettings> options)
+        public DeezerMetadataProvider(
+            IHttpClientFactory httpClientFactory,
+            AppSettings settings,
+            ProveedorMetadatosConfig config)
         {
             _httpClientFactory = httpClientFactory;
-            _settings = options?.Value ?? new AppSettings();
+            _settings = settings ?? new AppSettings();
+            _config = config ?? new ProveedorMetadatosConfig { Tipo = "deezer" };
         }
 
-        public string Nombre => "deezer";
+        public string Nombre =>
+            string.IsNullOrWhiteSpace(_config.Nombre) ? "deezer" : _config.Nombre.Trim();
+
+        public string Etiqueta =>
+            string.IsNullOrWhiteSpace(_config.Etiqueta) ? Nombre : _config.Etiqueta.Trim();
 
         private string BaseUrl =>
-            string.IsNullOrWhiteSpace(_settings.DeezerApiBase)
-                ? "https://api.deezer.com"
-                : _settings.DeezerApiBase.TrimEnd('/');
+            string.IsNullOrWhiteSpace(_config.BaseUrl)
+                ? BaseUrlPorDefecto
+                : _config.BaseUrl.TrimEnd('/');
 
         public async Task<MetadatosAudio> BuscarAsync(string artista, string titulo, string carpeta, CancellationToken cancellationToken)
         {
@@ -275,10 +286,10 @@ namespace AntaraSoft.Infrastructure.Metadata
             return null;
         }
 
-        private static MetadatosAudio SinResultado() => new()
+        private MetadatosAudio SinResultado() => new()
         {
             Encontrado = false,
-            Fuente = "deezer"
+            Fuente = Nombre
         };
 
         private static DateTime? ParsearFecha(string valor)

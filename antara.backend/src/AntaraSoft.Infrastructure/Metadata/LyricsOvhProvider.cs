@@ -15,20 +15,27 @@ namespace AntaraSoft.Infrastructure.Metadata
     /// </summary>
     public class LyricsOvhProvider : ILetrasProvider
     {
+        private const string BaseUrlPorDefecto = "https://api.lyrics.ovh";
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly AppSettings _settings;
+        private readonly ProveedorLetrasConfig _config;
         private readonly ApiRateLimiter _limiter = new(TimeSpan.FromMilliseconds(350));
 
-        public LyricsOvhProvider(IHttpClientFactory httpClientFactory, IOptions<AppSettings> options)
+        public LyricsOvhProvider(
+            IHttpClientFactory httpClientFactory,
+            AppSettings settings,
+            ProveedorLetrasConfig config)
         {
             _httpClientFactory = httpClientFactory;
-            _settings = options?.Value ?? new AppSettings();
+            _settings = settings ?? new AppSettings();
+            _config = config ?? new ProveedorLetrasConfig();
         }
 
         private string BaseUrl =>
-            string.IsNullOrWhiteSpace(_settings.LetrasApiBase)
-                ? "https://api.lyrics.ovh"
-                : _settings.LetrasApiBase.TrimEnd('/');
+            string.IsNullOrWhiteSpace(_config.BaseUrl)
+                ? BaseUrlPorDefecto
+                : _config.BaseUrl.TrimEnd('/');
 
         public async Task<string> ObtenerAsync(string artista, string titulo, CancellationToken cancellationToken)
         {

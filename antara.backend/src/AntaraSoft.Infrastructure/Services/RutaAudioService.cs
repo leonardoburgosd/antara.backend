@@ -199,9 +199,18 @@ namespace AntaraSoft.Infrastructure.Services
             if (HostPathResolver.EsRutaWindows(ruta.RutaFisica))
             {
                 var unidad = char.ToLowerInvariant(ruta.RutaFisica.Trim()[0]);
-                return $"La ruta no existe o la unidad {char.ToUpperInvariant(unidad)}: no está montada en el " +
-                       $"contenedor. Agrega el montaje \"{_resolver.MountRoot}/{unidad}\" en docker-compose.yml " +
-                       "o indica la ruta del contenedor.";
+                var montada = _resolver.UnidadesMontadas()
+                    .Contains(unidad.ToString(), StringComparer.OrdinalIgnoreCase);
+
+                if (!montada)
+                {
+                    return $"La ruta no existe o la unidad {char.ToUpperInvariant(unidad)}: no está montada en el " +
+                           $"contenedor. Unidades montadas: {_resolver.ResumenUnidades()}. Vuelve a desplegar con " +
+                           "scripts/montar-unidades.sh o indica la ruta del contenedor.";
+                }
+
+                return $"La unidad {char.ToUpperInvariant(unidad)}: está montada, pero la carpeta " +
+                       $"\"{ruta.RutaFisica}\" no existe dentro de ella.";
             }
 
             return "La ruta no existe o no es visible desde el contenedor de la API.";

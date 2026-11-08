@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace AntaraSoft.Application.Services
 {
     /// <summary>
-    /// Busca coincidencias en los proveedores de metadatos (Deezer, TheAudioDB) y aplica la elegida
+    /// Busca coincidencias en los proveedores de metadatos configurados y aplica la elegida
     /// a una pista existente, actualizando titulo, artista, album, portada, año,
     /// genero, duracion y letra.
     /// </summary>
@@ -29,6 +29,15 @@ namespace AntaraSoft.Application.Services
             _bibliotecaRepository = bibliotecaRepository;
         }
 
+        public List<ProveedorMetadatosDto> ObtenerProveedores() =>
+            _providers
+                .Select(prov => new ProveedorMetadatosDto
+                {
+                    Nombre = prov.Nombre,
+                    Etiqueta = string.IsNullOrWhiteSpace(prov.Etiqueta) ? prov.Nombre : prov.Etiqueta
+                })
+                .ToList();
+
         public Task<List<MetadatosCandidatoDto>> BuscarAsync(string consulta, CancellationToken cancellationToken) =>
             BuscarAsync(consulta, null, cancellationToken);
 
@@ -40,13 +49,21 @@ namespace AntaraSoft.Application.Services
             var listaProveedores = _providers;
             if (!string.IsNullOrWhiteSpace(proveedor) && !string.Equals(proveedor, "todos", StringComparison.OrdinalIgnoreCase))
             {
-                var prov = _providers.FirstOrDefault(p => string.Equals(p.Nombre, proveedor.Trim(), StringComparison.OrdinalIgnoreCase));
-                if (prov != null)
-                    listaProveedores = new List<IMetadataProvider> { prov };
+                var nombre = proveedor.Trim();
+                var prov = _providers.FirstOrDefault(p => string.Equals(p.Nombre, nombre, StringComparison.OrdinalIgnoreCase))
+                    ?? _providers.FirstOrDefault(p => string.Equals(p.Etiqueta, nombre, StringComparison.OrdinalIgnoreCase));
+
+                // No se cae a "todos": un proveedor deshabilitado o mal escrito en la
+                // configuracion debe ser visible, no devolver resultados de otro.
+                if (prov == null)
+                    throw new ArgumentException(ProveedoresDisponibles(nombre));
+
+                listaProveedores = new List<IMetadataProvider> { prov };
             }
 
             if (listaProveedores.Count == 0)
-                return new List<MetadatosCandidatoDto>();
+                throw new ArgumentException(
+                    "No hay proveedores de metadatos habilitados. Revisa AppSettings:MetadatosProveedores.");
 
             var tareas = listaProveedores.Select(p => p.BuscarCandidatosAsync(consulta.Trim(), cancellationToken));
             var resultados = await Task.WhenAll(tareas);
@@ -130,7 +147,9 @@ namespace AntaraSoft.Application.Services
             if (metadatos == null || !metadatos.Encontrado)
                 throw new InvalidOperationException("No se encontraron metadatos para la coincidencia seleccionada.");
 
-            if (!string.IsNullOrWhiteSpace(metadatos.ArtistaPrincipal) && !string.IsNullOrWhiteSpace(metadatos.Titulo))
+            if (_letrasProvider != null &&
+                !string.IsNullOrWhiteSpace(metadatos.ArtistaPrincipal) &&
+                !string.IsNullOrWhiteSpace(metadatos.Titulo))
             {
                 try
                 {
@@ -182,6 +201,14 @@ namespace AntaraSoft.Application.Services
 
             await _bibliotecaRepository.ActualizarMetadatosPista(pista);
             return await _bibliotecaRepository.ObtenerPistaBiblioteca(pistaId);
+        }
+
+        private string ProveedoresDisponibles(string solicitado)
+        {
+            if (_providers.Count == 0)
+                return "No hay proveedores de metadatos habilitados. Revisa AppSettings:MetadatosProveedores.";
+
+            return $"El proveedor '{solicitado}' no esta habilitado. Disponibles: {string.Join(", ", _providers.Select(p => p.Nombre))}.";
         }
 
         private static string Truncar(string valor, int maximo)

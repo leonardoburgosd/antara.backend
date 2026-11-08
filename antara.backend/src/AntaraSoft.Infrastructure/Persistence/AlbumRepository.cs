@@ -60,7 +60,10 @@ namespace AntaraSoft.Infrastructure.Persistence
                     album.Id,
                     album.Nombre,
                     album.Descripcion,
-                    album.PortadaUrl
+                    album.PortadaUrl,
+                    album.EstaPublicado,
+                    album.EstaActivo,
+                    album.Artista
                 });
             }
             catch (Exception err)
@@ -87,7 +90,7 @@ namespace AntaraSoft.Infrastructure.Persistence
         {
             try
             {
-                return await _dapper.Consulta<Album>("ObtenerTodosAlbumesDeUsuarios", null);
+                return await _dapper.Consulta<Album>("ObtenerTodosAlbumes", null);
             }
             catch (Exception err)
             {
@@ -116,7 +119,7 @@ namespace AntaraSoft.Infrastructure.Persistence
                 int resultado = await _dapper.QueryWithReturn<int>("PublicarAlbum", new
                 {
                     album.Id,
-                    album.FechaPublicacion
+                    album.EstaPublicado
                 });
                 return resultado == 0;
             }

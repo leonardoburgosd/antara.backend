@@ -11,6 +11,7 @@ import PistaCardsMobile from '../components/PistaCardsMobile'
 import MiniPlayer from '../components/MiniPlayer'
 import ModalDetalle from '../components/ModalDetalle'
 import ModalMetadatos from '../components/ModalMetadatos'
+import SubirPistaModal from '../components/SubirPistaModal'
 
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { SkeletonTable } from '../../../components/ui/Skeleton'
@@ -22,6 +23,7 @@ import {
   IconSearch,
   IconFolder,
   IconClose,
+  IconUpload,
 } from '../../../components/ui/Icons'
 
 export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
@@ -61,6 +63,7 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
   const [pistaSeleccionadaId, setPistaSeleccionadaId] = useState(null)
   const [detalle, setDetalle] = useState(null)
   const [pistaMetadatos, setPistaMetadatos] = useState(null)
+  const [subirAbierto, setSubirAbierto] = useState(false)
 
   const pistaActual = useMemo(
     () => pistas.find((p) => p.id === reproduciendoId) || null,
@@ -75,6 +78,17 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
   const alternarSeleccion = (pistaId, evento) => {
     if (evento) evento.stopPropagation()
     setPistaSeleccionadaId((actual) => (actual === pistaId ? null : pistaId))
+  }
+
+  const aplicarSubida = async (resultado) => {
+    if (!resultado) return
+    setSubirAbierto(false)
+    onToast(
+      resultado.conMetadatos
+        ? `«${resultado.nombre}» se subió y se completaron sus metadatos.`
+        : `«${resultado.nombre}» se subió a ${resultado.rutaDestino}.`,
+    )
+    await cargar()
   }
 
   const aplicarMetadatosActualizados = (actualizada) => {
@@ -113,6 +127,14 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSubirAbierto(true)}
+            className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2.5 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
+          >
+            <IconUpload className="h-4 w-4" />
+            Subir canción
+          </button>
           {onEscanear && (
             <button
               type="button"
@@ -264,6 +286,12 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
           onEditarMetadatos={() => setPistaMetadatos(detalle)}
         />
       )}
+
+      <SubirPistaModal
+        isOpen={subirAbierto}
+        onClose={() => setSubirAbierto(false)}
+        onSubida={aplicarSubida}
+      />
 
       {pistaMetadatos && (
         <ModalMetadatos

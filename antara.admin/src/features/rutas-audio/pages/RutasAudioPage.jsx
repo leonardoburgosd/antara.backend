@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useRutasAudio } from '../hooks/useRutasAudio'
 import { useEscaneoAudio } from '../hooks/useEscaneoAudio'
+import { usePaginacion } from '../../../hooks/usePaginacion'
 
 import EscaneoPanel from '../components/EscaneoPanel'
 import PruebaPanel from '../components/PruebaPanel'
@@ -8,6 +9,7 @@ import RutaCard from '../components/RutaCard'
 import RutaFormModal from '../components/RutaFormModal'
 import DeleteRutaModal from '../components/DeleteRutaModal'
 import { ErrorBanner } from '../../../components/ui/ErrorBanner'
+import { Pagination } from '../../../components/ui/Pagination'
 
 import { IconFolder, IconPlus, IconRefresh } from '../../../components/ui/Icons'
 
@@ -23,6 +25,7 @@ const FORM_VACIO = {
 export const RutasAudioPage = ({ onToast = () => {} }) => {
   const {
     rutas,
+    unidadesHost,
     loading,
     error,
     cargar,
@@ -48,6 +51,7 @@ export const RutasAudioPage = ({ onToast = () => {} }) => {
     cancelarEscaneo,
   } = useEscaneoAudio({ onToast })
 
+  const paginacion = usePaginacion(rutas, { tamanoInicial: 10 })
   const [modalAbierto, setModalAbierto] = useState(false)
   const [rutaEditando, setRutaEditando] = useState(null)
   const [form, setForm] = useState(FORM_VACIO)
@@ -154,9 +158,27 @@ export const RutasAudioPage = ({ onToast = () => {} }) => {
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-xs leading-5 text-white/40">
         <p>
           <span className="text-white/65">Ruta física:</span> carpeta real en el equipo host (por
-          ejemplo <span className="text-white/60">C:/Users/TuUsuario/Music</span>). Las unidades
-          montadas se traducen automáticamente dentro del contenedor:
-          <span className="text-white/60"> C:/ → /host/c</span>.
+          ejemplo <span className="text-white/60">C:/Users/TuUsuario/Music</span>). La API traduce
+          la letra de unidad al montaje equivalente dentro del contenedor
+          (<span className="text-white/60">X:/ → {unidadesHost.raiz}/x</span>).
+        </p>
+        <p>
+          <span className="text-white/65">Unidades visibles ahora:</span>{" "}
+          {unidadesHost.unidades.length === 0 ? (
+            <span className="text-amber-200/70">
+              ninguna. Monta las unidades del host y recrea la API para que sus rutas sean
+              accesibles.
+            </span>
+          ) : (
+            unidadesHost.unidades.map((unidad) => (
+              <span
+                key={unidad}
+                className="mr-1.5 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-white/60"
+              >
+                {unidad.toUpperCase()}:/ → {unidadesHost.raiz}/{unidad}
+              </span>
+            ))
+          )}
         </p>
         <p>
           <span className="text-white/65">Ruta en el contenedor:</span> es opcional. Solo úsala si
@@ -213,21 +235,33 @@ export const RutasAudioPage = ({ onToast = () => {} }) => {
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {rutas.map((ruta) => (
-            <RutaCard
-              key={ruta.id}
-              ruta={ruta}
-              procesando={procesandoId === ruta.id}
-              probando={probandoId === ruta.id}
-              onProbar={probar}
-              onEditar={abrirEditar}
-              onAlternarActiva={alternarActiva}
-              onMarcarPredeterminada={marcarPredeterminada}
-              onEliminar={setRutaAEliminar}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {paginacion.visibles.map((ruta) => (
+              <RutaCard
+                key={ruta.id}
+                ruta={ruta}
+                procesando={procesandoId === ruta.id}
+                probando={probandoId === ruta.id}
+                onProbar={probar}
+                onEditar={abrirEditar}
+                onAlternarActiva={alternarActiva}
+                onMarcarPredeterminada={marcarPredeterminada}
+                onEliminar={setRutaAEliminar}
+              />
+            ))}
+          </div>
+          <Pagination
+            pagina={paginacion.pagina}
+            totalPaginas={paginacion.totalPaginas}
+            desde={paginacion.desde}
+            hasta={paginacion.hasta}
+            total={paginacion.total}
+            tamano={paginacion.tamano}
+            onPagina={paginacion.setPagina}
+            onTamano={paginacion.cambiarTamano}
+          />
+        </>
       )}
 
       <RutaFormModal

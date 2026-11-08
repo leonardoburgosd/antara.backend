@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace AntaraSoft.Infrastructure.Storage
@@ -35,6 +36,49 @@ namespace AntaraSoft.Infrastructure.Storage
             string.IsNullOrWhiteSpace(_settings.HostMountRoot)
                 ? "/host"
                 : _settings.HostMountRoot.Trim().TrimEnd('/');
+
+        /// <summary>
+        /// Unidades del host realmente montadas en el contenedor, es decir los
+        /// directorios de una sola letra que existen bajo MountRoot
+        /// (/host/c, /host/f...). No hay ninguna lista fija: depende de los
+        /// montajes con los que se creó el contenedor.
+        /// </summary>
+        public IReadOnlyList<string> UnidadesMontadas()
+        {
+            if (!Directory.Exists(MountRoot))
+                return Array.Empty<string>();
+
+            try
+            {
+                return Directory.GetDirectories(MountRoot)
+                    .Select(Path.GetFileName)
+                    .Where(nombre => !string.IsNullOrEmpty(nombre) && nombre.Length == 1 && char.IsLetter(nombre[0]))
+                    .Select(nombre => nombre.ToLowerInvariant())
+                    .Distinct()
+                    .OrderBy(nombre => nombre, StringComparer.Ordinal)
+                    .ToList();
+            }
+            catch (IOException)
+            {
+                return Array.Empty<string>();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Array.Empty<string>();
+            }
+        }
+
+        /// <summary>
+        /// Texto legible con las unidades disponibles, para mensajes de error.
+        /// </summary>
+        public string ResumenUnidades()
+        {
+            var unidades = UnidadesMontadas();
+
+            return unidades.Count == 0
+                ? "ninguna unidad del host está montada"
+                : string.Join(", ", unidades.Select(u => $"{char.ToUpperInvariant(u[0])}:"));
+        }
 
         public static bool EsRutaWindows(string ruta) =>
             !string.IsNullOrWhiteSpace(ruta) && UnidadWindows.IsMatch(ruta.Trim());

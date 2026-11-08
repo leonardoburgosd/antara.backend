@@ -1,3 +1,4 @@
+using AntaraSoft.Application;
 using AntaraSoft.Application.Contracts.Repository;
 using AntaraSoft.Application.Contracts.Services;
 using AntaraSoft.Domain.Entities;
@@ -19,6 +20,15 @@ namespace AntaraSoft.Application.Services
         public async Task<Playlist> ObtenerPlaylist(Guid id) => await _playlistRepository.ObtenerPlaylist(id);
         public async Task<List<Playlist>> ObtenerTodasPlaylists(Guid usuarioId) => await _playlistRepository.ObtenerTodasPlaylists(usuarioId);
         public async Task<List<Playlist>> ObtenerTodosPlaylistDeUsuario(Guid userId) => await _playlistRepository.ObtenerTodosPlaylistDeUsuario(userId);
+        public async Task<List<PlaylistResumenDto>> ObtenerResumenes() => await _playlistRepository.ObtenerResumenes();
+
+        public async Task<List<PistaBibliotecaDto>> ObtenerPistasDePlaylist(Guid playlistId)
+        {
+            if (playlistId == Guid.Empty)
+                throw new ArgumentNullException(nameof(playlistId), "No se proporciono ningún valor");
+            return await _playlistRepository.ObtenerPistasDePlaylist(playlistId);
+        }
+
         public async Task CrearPlaylist(Playlist playlist) => await _playlistRepository.CrearPlaylist(playlist);
         public async Task EliminarPlaylist(Guid id) => await _playlistRepository.EliminarPlaylist(id);
         public async Task EditarPlaylist(Playlist playlist) => await _playlistRepository.EditarPlaylist(playlist);

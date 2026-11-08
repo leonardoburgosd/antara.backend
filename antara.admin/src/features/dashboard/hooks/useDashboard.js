@@ -4,6 +4,9 @@ import { storage } from '../../../services/storage/localStorage'
 
 export function useDashboard() {
   const [user, setUser] = useState(null)
+
+  // Vuelve a leer la sesión guardada (por ejemplo tras editar el perfil).
+  const refreshUser = useCallback(() => setUser(storage.getUser()), [])
   const [dashboard, setDashboard] = useState(null)
   const [health, setHealth] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -33,6 +36,7 @@ export function useDashboard() {
 
   return {
     user,
+    refreshUser,
     dashboard,
     health,
     loading,

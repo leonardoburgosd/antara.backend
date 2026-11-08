@@ -150,7 +150,7 @@ namespace AntaraSoft.Infrastructure.Services
                         lock (job.Sync)
                             job.Mensaje = $"La ruta '{ruta.Nombre}' no es accesible desde la API. " +
                                           "Verifica que la carpeta exista y que su unidad esté montada " +
-                                          $"en el contenedor (por ejemplo C:/ -> {_resolver.MountRoot}/c).";
+                                          $"en el contenedor. Unidades montadas: {_resolver.ResumenUnidades()}.";
 
                         continue;
                     }
@@ -265,11 +265,55 @@ namespace AntaraSoft.Infrastructure.Services
             }
         }
 
+        /// <summary>
+        /// Importa un archivo suelto (por ejemplo una subida desde el panel)
+        /// reutilizando el mismo enriquecido de metadatos que el escaneo.
+        /// </summary>
+        public async Task<EscaneoAudioResultadoDto> ImportarArchivoAsync(
+            string archivo, Guid usuarioId, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(archivo) || !File.Exists(archivo))
+                throw new ArgumentException("El archivo de audio no existe o no es accesible.", nameof(archivo));
+
+            using var scope = _scopeFactory.CreateScope();
+            var biblioteca = scope.ServiceProvider.GetRequiredService<IBibliotecaRepository>();
+
+            return await ImportarAsync(
+                archivo,
+                usuarioId,
+                biblioteca,
+                new ConcurrentDictionary<string, Lazy<Task<Guid>>>(StringComparer.OrdinalIgnoreCase),
+                new ConcurrentDictionary<string, Lazy<Task<int>>>(StringComparer.OrdinalIgnoreCase),
+                cancellationToken);
+        }
+
         private async Task ProcesarArchivoAsync(
             EscaneoJob job,
             IBibliotecaRepository biblioteca,
             string archivo,
             Guid usuarioId,
+            ConcurrentDictionary<string, Lazy<Task<Guid>>> albumes,
+            ConcurrentDictionary<string, Lazy<Task<int>>> generos,
+            CancellationToken cancellationToken)
+        {
+            var resultado = await ImportarAsync(
+                archivo, usuarioId, biblioteca, albumes, generos, cancellationToken);
+
+            lock (job.Sync)
+            {
+                if (resultado.Estado == "nuevo")
+                    job.Nuevos++;
+                else
+                    job.SinMetadatos++;
+
+                AgregarResultado(job, resultado);
+            }
+        }
+
+        private async Task<EscaneoAudioResultadoDto> ImportarAsync(
+            string archivo,
+            Guid usuarioId,
+            IBibliotecaRepository biblioteca,
             ConcurrentDictionary<string, Lazy<Task<Guid>>> albumes,
             ConcurrentDictionary<string, Lazy<Task<int>>> generos,
             CancellationToken cancellationToken)
@@ -352,32 +396,25 @@ namespace AntaraSoft.Infrastructure.Services
 
             await biblioteca.CrearPista(pista);
 
-            lock (job.Sync)
+            return new EscaneoAudioResultadoDto
             {
-                if (metadatos.Encontrado)
-                    job.Nuevos++;
-                else
-                    job.SinMetadatos++;
-
-                AgregarResultado(job, new EscaneoAudioResultadoDto
-                {
-                    Archivo = archivo,
-                    Nombre = pista.Nombre,
-                    Interprete = pista.Interprete,
-                    Album = albumNombre,
-                    PortadaUrl = metadatos.PortadaUrl,
-                    ImagenArtista = metadatos.ImagenArtistaUrl,
-                    Ano = metadatos.Ano,
-                    TieneLetra = !string.IsNullOrWhiteSpace(metadatos.Letra),
-                    Estado = metadatos.Encontrado ? "nuevo" : "sin_metadatos",
-                    Mensaje = metadatos.Encontrado
-                        ? (string.IsNullOrWhiteSpace(metadatos.Letra)
-                            ? "Metadatos importados."
-                            : "Metadatos y letra importados.")
-                        : "El proveedor no encontró la canción; se registró con los datos del archivo.",
-                    Fecha = DateTime.UtcNow
-                });
-            }
+                PistaId = pista.Id,
+                Archivo = archivo,
+                Nombre = pista.Nombre,
+                Interprete = pista.Interprete,
+                Album = albumNombre,
+                PortadaUrl = metadatos.PortadaUrl,
+                ImagenArtista = metadatos.ImagenArtistaUrl,
+                Ano = metadatos.Ano,
+                TieneLetra = !string.IsNullOrWhiteSpace(metadatos.Letra),
+                Estado = metadatos.Encontrado ? "nuevo" : "sin_metadatos",
+                Mensaje = metadatos.Encontrado
+                    ? (string.IsNullOrWhiteSpace(metadatos.Letra)
+                        ? "Metadatos importados."
+                        : "Metadatos y letra importados.")
+                    : "El proveedor no encontró la canción; se registró con los datos del archivo.",
+                Fecha = DateTime.UtcNow
+            };
         }
 
         private static void AgregarResultado(EscaneoJob job, EscaneoAudioResultadoDto resultado)

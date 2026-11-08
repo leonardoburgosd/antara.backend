@@ -22,18 +22,79 @@ namespace AntaraSoft.Api.Controllers
         private readonly IAudioStorage _audioStorage;
         private readonly IBibliotecaRepository _bibliotecaRepository;
         private readonly IMetadatosPistaService _metadatosPistaService;
+        private readonly ISubidaPistaService _subidaPistaService;
         private const string directorioId = "1hWAXKy5ZW8Y4A9ch93EmMzAfC8pyeDbd";
 
         public PistaController(
             IGestionarPistaService gestionarpistaService,
             IAudioStorage audioStorage,
             IBibliotecaRepository bibliotecaRepository,
-            IMetadatosPistaService metadatosPistaService)
+            IMetadatosPistaService metadatosPistaService,
+            ISubidaPistaService subidaPistaService)
         {
             _gestionarPistaService = gestionarpistaService;
             _audioStorage = audioStorage;
             _bibliotecaRepository = bibliotecaRepository;
             _metadatosPistaService = metadatosPistaService;
+            _subidaPistaService = subidaPistaService;
+        }
+
+        /// <summary>Rutas registradas que pueden recibir una subida desde el panel.</summary>
+        [HttpGet("subir/rutas")]
+        [TokenAuthorize("admin", "administrador")]
+        public async Task<ActionResult<List<RutaSubidaDto>>> ObtenerRutasDeSubidaAsync()
+        {
+            try
+            {
+                return Ok(await _subidaPistaService.ObtenerRutasAsync());
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "No se pudieron obtener las rutas de audio." });
+            }
+        }
+
+        /// <summary>
+        /// Sube un archivo de audio a la ruta indicada (o a la predeterminada) y lo
+        /// registra en la biblioteca. Solo se aceptan extensiones de audio.
+        /// </summary>
+        [HttpPost("subir")]
+        [TokenAuthorize("admin", "administrador")]
+        public async Task<ActionResult<SubidaPistaDto>> SubirPistaAsync(
+            [FromForm] Guid? rutaId,
+            [FromForm] string? subcarpeta,
+            [FromForm] IFormFile archivo,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (archivo == null || archivo.Length == 0)
+                    return BadRequest(new { error = "Adjunta un archivo de audio para subir." });
+
+                var usuarioId = HttpContext.Items["UsuarioId"] is Guid valor ? valor : Guid.Empty;
+
+                await using var contenido = archivo.OpenReadStream();
+                var resultado = await _subidaPistaService.SubirAsync(
+                    rutaId, subcarpeta, archivo.FileName, contenido, usuarioId, cancellationToken);
+
+                return Created($"/api/pista/{resultado.PistaId}", resultado);
+            }
+            catch (KeyNotFoundException err)
+            {
+                return NotFound(new { error = err.Message });
+            }
+            catch (ArgumentException err)
+            {
+                return BadRequest(new { error = err.Message });
+            }
+            catch (InvalidOperationException err)
+            {
+                return BadRequest(new { error = err.Message });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "No se pudo subir la canción." });
+            }
         }
 
         [HttpPost]
@@ -101,6 +162,45 @@ namespace AntaraSoft.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Descarga el audio de un enlace de YouTube y lo guarda en la ruta
+        /// indicada, registrándolo en la biblioteca.
+        /// </summary>
+        [HttpPost("subir/url")]
+        [TokenAuthorize("admin", "administrador")]
+        public async Task<ActionResult<SubidaPistaDto>> SubirDesdeUrlAsync(
+            [FromBody] SubidaDesdeUrlDto dto,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Url))
+                    return BadRequest(new { error = "Ingresa el enlace de YouTube de la canción." });
+
+                var usuarioId = HttpContext.Items["UsuarioId"] is Guid valor ? valor : Guid.Empty;
+                var resultado = await _subidaPistaService.SubirDesdeUrlAsync(
+                    dto.RutaId, dto.Subcarpeta, dto.Url, usuarioId, cancellationToken);
+
+                return Created($"/api/pista/{resultado.PistaId}", resultado);
+            }
+            catch (KeyNotFoundException err)
+            {
+                return NotFound(new { error = err.Message });
+            }
+            catch (ArgumentException err)
+            {
+                return BadRequest(new { error = err.Message });
+            }
+            catch (InvalidOperationException err)
+            {
+                return BadRequest(new { error = err.Message });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "No se pudo descargar la canción de YouTube." });
+            }
+        }
+
         [HttpGet("todos/album/{AlbumId}")]
         public async Task<ActionResult<List<PistaDto>>> ObtenerTodosPistasDeAlbumAsync(Guid AlbumId)
         {
@@ -141,6 +241,17 @@ namespace AntaraSoft.Api.Controllers
             {
                 return StatusCode(500, new { error = "No se pudo obtener la lista de pistas." });
             }
+        }
+
+        /// <summary>
+        /// Proveedores de metadatos habilitados según la configuración. El panel
+        /// arma su selector con esta lista, sin nombres fijos en el frontend.
+        /// </summary>
+        [HttpGet("metadatos/proveedores")]
+        [TokenAuthorize("admin", "administrador")]
+        public ActionResult<List<ProveedorMetadatosDto>> ObtenerProveedoresMetadatos()
+        {
+            return Ok(_metadatosPistaService.ObtenerProveedores());
         }
 
         [HttpGet("metadatos/buscar")]

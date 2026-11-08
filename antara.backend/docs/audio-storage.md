@@ -9,20 +9,46 @@ El sistema corre en Docker sobre Linux, pero el administrador ingresa rutas de W
 | Ruta del host (Windows) | Ruta en el contenedor |
 |---|---|
 | `C:/Users/Leo/Music` | `/host/c/Users/Leo/Music` |
-| `D:/Flac` | `/host/d/Flac` |
+| `F:/Musica` | `/host/f/Musica` |
+| `H:/Multimedia/Musica` | `/host/h/Multimedia/Musica` |
 | `/music` | `/music` (sin cambio) |
 
-**Volumen Docker correspondiente** (en `docker-compose.yml`):
+**Volúmenes Docker: dinámicos, no declarados en el compose base.**
+
+`docker-compose.yml` no registra letras de unidad. `scripts/montar-unidades.sh`
+enumera las unidades que existen en el host y genera `docker-compose.unidades.yml`
+con un bind de solo lectura por cada una:
+
 ```yaml
-volumes:
-  - type: bind
-    source: "C:/"
-    target: /host/c
-    read_only: true
+# docker-compose.unidades.yml (generado, no versionado)
+services:
+  api:
+    volumes:
+      - type: bind
+        source: "C:/"
+        target: /host/c
+        read_only: true
+      - type: bind
+        source: "H:/"
+        target: /host/h
+        read_only: true
 ```
 
+El stack se levanta con ambos archivos:
+
+```bash
+./scripts/montar-unidades.sh            # detecta unidades y hace up -d
+./scripts/montar-unidades.sh --build    # reconstruye además las imágenes
+```
+
+La API descubre en caliente las unidades realmente montadas leyendo los
+directorios de una letra bajo `HostMountRoot`, y las expone en
+`GET /api/sistema/unidades-host`, así que el panel no mantiene ninguna lista fija.
+
 > [!IMPORTANT]
-> El contenedor solo puede leer unidades montadas en `docker-compose.yml`. Si el usuario tiene música en `E:/`, debes agregar un nuevo volumen bind para `E:/`.
+> El contenedor solo puede leer unidades montadas. Al conectar un disco nuevo basta con volver a ejecutar `./scripts/montar-unidades.sh`: reescribe el archivo generado y recrea el servicio `api`. No hay que editar el compose ni agregar variables por unidad.
+>
+> En Linux/macOS no existen letras de unidad: pasa las carpetas con `RUTAS_EXTRA=/mnt/musica ./scripts/montar-unidades.sh` o registra directamente la ruta del contenedor en el panel.
 
 ### Configuración
 
@@ -101,6 +127,54 @@ El escaneo procesa archivos en paralelo con hasta `AppSettings.EscaneoAudioMaxPa
 ### Extensiones de audio soportadas
 
 `.mp3`, `.flac`, `.wav`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wma`
+
+---
+
+## Subida de canciones (SubidaPistaService)
+
+El panel sube archivos a través de `POST /api/pista/subir` (multipart). El destino
+no llega como ruta libre: el cliente envía el `rutaId` de una ruta ya registrada y
+el servicio resuelve su carpeta efectiva con `HostPathResolver`.
+
+1. Valida la extensión contra la lista de audio (`.mp3`, `.flac`, `.wav`, `.m4a`,
+   `.aac`, `.ogg`, `.opus`, `.wma`, `.aiff`, `.alac`); cualquier otro archivo
+   responde `400`.
+2. Resuelve la carpeta de la ruta (o de la predeterminada si no se indica) y falla
+   si no existe o no es escribible desde el contenedor.
+3. Sanitiza la subcarpeta opcional: no admite rutas absolutas ni `..` y debe quedar
+   dentro de la carpeta de la ruta.
+4. Guarda el archivo sin sobrescribir (`canción (1).mp3`, …) y lo registra en la
+   biblioteca llamando a `IEscaneoAudioService.ImportarArchivoAsync`, que reutiliza
+   el enriquecido de metadatos del escaneo (álbum, género, portada y letra).
+
+El tamaño máximo por archivo se controla con `AppSettings__SubidaAudioMaxMb`
+(2048 MB por defecto) y debe ser coherente con `client_max_body_size` de Nginx.
+
+### Descarga desde YouTube
+
+`POST /api/pista/subir/url` usa `YouTubeAudioDownloader` (`yt-dlp` + `ffmpeg`
+instalados en la imagen) para bajar el audio de un enlace y guardarlo en la misma
+ruta que una subida normal:
+
+1. Valida que el host sea `youtube.com` o `youtu.be` (subdominios incluidos).
+2. Ejecuta `yt-dlp` con `--no-playlist --extract-audio --audio-format mp3` dentro de
+   la carpeta de destino; los argumentos van como lista, nunca por shell.
+3. Toma la ruta final que imprime `--print after_move:filepath`, le quita el sufijo
+   `[id]` y registra la pista con `ImportarArchivoAsync` (metadatos incluidos).
+
+El binario se localiza con `AppSettings__YtDlpPath` y el tiempo máximo con
+`AppSettings__DescargaYouTubeTimeoutSegundos` (600 s).
+
+Configuración útil de YouTube:
+
+| Variable | Valor | Para qué |
+|---|---|---|
+| `YTDLP_PLAYER_CLIENT` | `android` | Evita el bloqueo «Sign in to confirm you're not a bot» en muchas redes. |
+| `YTDLP_COOKIES_PATH` | `/config/cookies/youtube.txt` | Cookies Netscape si YouTube exige sesión; se montan desde `./cookies`. |
+
+Los montajes de unidades del host los genera `scripts/montar-unidades.sh` con
+escritura; con `UNIDADES_SOLO_LECTURA=1` el panel solo podrá leer, y las subidas a
+esas rutas responderán `400`.
 
 ---
 
