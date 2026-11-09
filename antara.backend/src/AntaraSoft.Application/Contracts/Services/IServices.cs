@@ -183,6 +183,12 @@ namespace AntaraSoft.Application.Contracts.Services
         Task<PistaBibliotecaDto> ActualizarAsync(Guid pistaId, string idExterno, Guid usuarioId, CancellationToken cancellationToken);
         Task<PistaBibliotecaDto> ActualizarAsync(Guid pistaId, string idExterno, string proveedor, Guid usuarioId, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Letra en formato LRC de la pista, o <c>null</c> si el proveedor no
+        /// tiene una version sincronizada para esa grabacion.
+        /// </summary>
+        Task<string> ObtenerLetraSincronizadaAsync(Guid pistaId, CancellationToken cancellationToken);
+
         /// <summary>Proveedores habilitados, tal como quedaron configurados.</summary>
         List<ProveedorMetadatosDto> ObtenerProveedores();
     }
@@ -202,5 +208,19 @@ namespace AntaraSoft.Application.Contracts.Services
     public interface ILetrasProvider
     {
         Task<string> ObtenerAsync(string artista, string titulo, CancellationToken cancellationToken);
+    }
+
+    /// <summary>
+    /// Letra con marcas de tiempo en formato LRC. Permite resaltar la linea que
+    /// suena en cada momento; no todas las pistas tienen una version sincronizada.
+    /// </summary>
+    public interface ILetrasSincronizadasProvider
+    {
+        Task<string> ObtenerAsync(
+            string artista,
+            string titulo,
+            string album,
+            int duracionSegundos,
+            CancellationToken cancellationToken);
     }
 }

@@ -54,7 +54,10 @@ export const MiniPlayer = ({
           >
             {pista.nombre}
           </button>
-          <p className="truncate text-[10px] text-white/40">{pista.interprete || 'Sin artista'}</p>
+          <p className="truncate text-[10px] text-white/40">
+            {pista.interprete || 'Sin artista'}
+            {pista.albumNombre ? ` · ${pista.albumNombre}` : ''}
+          </p>
         </div>
 
         <button

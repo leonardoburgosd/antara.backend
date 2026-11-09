@@ -256,6 +256,8 @@ Lista todas las pistas de la biblioteca con metadatos completos.
     "anoCreacion": 1975,
     "generoNombre": "Rock",
     "duracionSegundos": 354,
+    "duracionMinutos": 5.9,
+    "duracion": "5:54",
     "reproducciones": 42,
     "tieneLetra": true,
     "fuenteMetadatos": "deezer"
@@ -297,7 +299,9 @@ Solo se aceptan `.mp3`, `.flac`, `.wav`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wma`
 sobrescribe: si ya existe, se agrega ` (1)`, ` (2)`, …
 
 **Respuesta 201:** `SubidaPistaDto` con `pistaId`, `nombre`, `interprete`, `album`,
-`archivo`, `rutaDestino`, `rutaId`, `rutaNombre`, `conMetadatos` y `mensaje`.
+`archivo`, `rutaDestino`, `rutaId`, `rutaNombre`, `duracionSegundos`, `duracionMinutos`,
+`duracion`, `conMetadatos` y `mensaje`. La duración permite al reproductor mostrar el
+total y el minuto actual desde el primer instante.
 
 **Errores:**
 - `400` — Extensión no permitida, archivo vacío, subcarpeta inválida o ruta no escribible.
@@ -322,7 +326,8 @@ enriquecido de metadatos que el escaneo. Cuerpo JSON:
 - Si la ruta no existe o no es escribible responde `400`; si el `rutaId` no existe, `404`.
 
 **Respuesta 201:** `SubidaPistaDto` con `pistaId`, `nombre`, `interprete`, `album`,
-`archivo`, `rutaDestino`, `rutaId`, `rutaNombre`, `conMetadatos` y `mensaje`.
+`archivo`, `rutaDestino`, `rutaId`, `rutaNombre`, `duracionSegundos`, `duracionMinutos`,
+`duracion`, `conMetadatos` y `mensaje`.
 
 ### `GET /api/pista/metadatos/buscar?cadena=queen&proveedor=todos`
 
@@ -395,6 +400,53 @@ Content-Type: audio/mpeg  (o el tipo correcto según extensión)
 
 **Errores:**
 - `404` — Pista no encontrada o archivo no existe en disco.
+
+### `GET /api/pista/{id}/letra-sincronizada`
+
+Devuelve la letra de la pista con marcas de tiempo (formato **LRC**) para que el
+reproductor resalte el verso que suena. Se obtiene de **LRCLIB**, que identifica la
+grabación por artista, título, álbum y duración (±2 s). No requiere clave.
+
+**Auth:** `[TokenAuthorize("admin", "administrador")]`
+
+**Respuesta 200:**
+```json
+{
+  "letraSincronizada": "[00:05.15] There's a fire starting in my heart\n[00:09.74] ..."
+}
+```
+
+**Errores:**
+- `404` — La pista no existe o LRCLIB no tiene una versión sincronizada de esa grabación.
+
+> La letra sin tiempos (`letra`) sigue viniendo de lyrics.ovh al escanear o
+> actualizar metadatos; este endpoint solo agrega la versión sincronizada cuando existe.
+
+### `GET /api/pista/{id}/descarga`
+
+Descarga un paquete **ZIP** con todo lo necesario para usar la pista sin conexión.
+Solo se generan las pistas que se solicitan explícitamente.
+
+**Auth:** `[TokenAuthorize("admin", "administrador")]`
+
+**Respuesta 200:** `application/zip` con `Content-Disposition: attachment`.
+Contenido:
+
+| Archivo | Descripción |
+|---|---|
+| `<Artista> - <Título>.<ext>` | Audio original sin recomprimir |
+| `portada.<ext>` | Portada del álbum (si la URL o el archivo local están disponibles) |
+| `letra.txt` | Letra sin tiempos, si existe |
+| `letra.lrc` | Letra con marcas de tiempo, si LRCLIB tiene esa grabación |
+| `pista.json` | Datos de la pista y su álbum, duración, nombres de archivo y letras |
+
+`pista.json` incluye `duracionSegundos`, `duracionMinutos`, `duracion` (`"3:48"`),
+álbum (`id`, `nombre`, `artista`, `portada`), género, reproducciones y el nombre
+del archivo de audio, para que un reproductor local pueda reconstruir la ficha.
+
+**Errores:**
+- `401` — Token ausente o inválido.
+- `404` — La pista no existe o su archivo de audio no está disponible en el servidor.
 
 ---
 

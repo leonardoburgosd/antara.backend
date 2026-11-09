@@ -30,6 +30,14 @@ export const IconDisc = (props) => (
   </IconBase>
 )
 
+export const IconDownload = (props) => (
+  <IconBase {...props}>
+    <path d="M12 3v12" />
+    <path d="M7 10l5 5 5-5" />
+    <path d="M5 21h14" />
+  </IconBase>
+)
+
 export const IconSearch = (props) => (
   <IconBase {...props}>
     <circle cx="11" cy="11" r="7" />

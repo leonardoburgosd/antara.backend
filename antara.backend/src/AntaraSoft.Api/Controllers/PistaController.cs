@@ -3,12 +3,17 @@ using AntaraSoft.Application;
 using AntaraSoft.Application.Contracts.Repository;
 using AntaraSoft.Application.Contracts.Services;
 using AntaraSoft.Domain.Entities;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,20 +28,27 @@ namespace AntaraSoft.Api.Controllers
         private readonly IBibliotecaRepository _bibliotecaRepository;
         private readonly IMetadatosPistaService _metadatosPistaService;
         private readonly ISubidaPistaService _subidaPistaService;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IWebHostEnvironment _entorno;
         private const string directorioId = "1hWAXKy5ZW8Y4A9ch93EmMzAfC8pyeDbd";
+        private const int MaximoPortadaBytes = 10 * 1024 * 1024;
 
         public PistaController(
             IGestionarPistaService gestionarpistaService,
             IAudioStorage audioStorage,
             IBibliotecaRepository bibliotecaRepository,
             IMetadatosPistaService metadatosPistaService,
-            ISubidaPistaService subidaPistaService)
+            ISubidaPistaService subidaPistaService,
+            IHttpClientFactory httpClientFactory,
+            IWebHostEnvironment entorno)
         {
             _gestionarPistaService = gestionarpistaService;
             _audioStorage = audioStorage;
             _bibliotecaRepository = bibliotecaRepository;
             _metadatosPistaService = metadatosPistaService;
             _subidaPistaService = subidaPistaService;
+            _httpClientFactory = httpClientFactory;
+            _entorno = entorno;
         }
 
         /// <summary>Rutas registradas que pueden recibir una subida desde el panel.</summary>
@@ -305,6 +317,167 @@ namespace AntaraSoft.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Letra con marcas de tiempo (LRC) para resaltar la linea que suena.
+        /// Responde 404 si la cancion no tiene una version sincronizada.
+        /// </summary>
+        [HttpGet("{id:guid}/letra-sincronizada")]
+        [TokenAuthorize("admin", "administrador")]
+        public async Task<ActionResult> ObtenerLetraSincronizadaAsync(Guid id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var letra = await _metadatosPistaService.ObtenerLetraSincronizadaAsync(id, cancellationToken);
+                if (string.IsNullOrWhiteSpace(letra))
+                {
+                    return NotFound(new
+                    {
+                        error = "Esta canción no tiene una letra sincronizada disponible."
+                    });
+                }
+
+                return Ok(new { letraSincronizada = letra });
+            }
+            catch (KeyNotFoundException err)
+            {
+                return NotFound(new { error = err.Message });
+            }
+            catch (ArgumentException err)
+            {
+                return BadRequest(new { error = err.Message });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "No se pudo obtener la letra sincronizada." });
+            }
+        }
+
+        /// <summary>
+        /// Descarga una pista como ZIP con todo lo necesario para usarla offline:
+        /// audio original, portada del album, letra, letra sincronizada (si existe)
+        /// y los datos de la pista y su album en <c>pista.json</c>.
+        /// </summary>
+        [HttpGet("{id:guid}/descarga")]
+        [TokenAuthorize("admin", "administrador")]
+        public async Task<IActionResult> DescargarPistaAsync(Guid id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                // ZipArchive escribe el directorio central de forma síncrona al
+                // cerrarse; Kestrel solo lo permite si se habilita por respuesta.
+                var controlCuerpo = HttpContext.Features.Get<IHttpBodyControlFeature>();
+                if (controlCuerpo != null) controlCuerpo.AllowSynchronousIO = true;
+
+                var pista = await _bibliotecaRepository.ObtenerPistaBiblioteca(id);
+                if (pista == null)
+                    return NotFound(new { error = "La pista no existe." });
+
+                var rutaAudio = _audioStorage.ResolvePhysicalPath(pista.Url);
+                if (string.IsNullOrEmpty(rutaAudio) || !System.IO.File.Exists(rutaAudio))
+                    return NotFound(new { error = "El archivo de audio no está disponible en el servidor." });
+
+                string letraSincronizada = null;
+                try
+                {
+                    letraSincronizada = await _metadatosPistaService
+                        .ObtenerLetraSincronizadaAsync(id, cancellationToken);
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // La letra sincronizada es opcional para el paquete.
+                }
+
+                var (portada, extensionPortada) = await ObtenerPortadaAsync(pista.PortadaUrl, cancellationToken);
+
+                var nombreBase = LimpiarNombreArchivo($"{pista.Interprete} - {pista.Nombre}", "pista");
+                var extensionAudio = Path.GetExtension(rutaAudio);
+                if (string.IsNullOrWhiteSpace(extensionAudio)) extensionAudio = ".mp3";
+
+                var nombreAudio = $"{nombreBase}{extensionAudio.ToLowerInvariant()}";
+                var nombrePortada = portada == null ? null : $"portada{extensionPortada}";
+                var tieneLetra = !string.IsNullOrWhiteSpace(pista.Letra);
+                var tieneLetraSincronizada = !string.IsNullOrWhiteSpace(letraSincronizada);
+                var nombreZip = $"{nombreBase}.zip";
+
+                Response.ContentType = "application/zip";
+                Response.Headers["Content-Disposition"] =
+                    $"attachment; filename=\"{NombreAscii(nombreZip)}\"; filename*=UTF-8''{Uri.EscapeDataString(nombreZip)}";
+
+                using (var zip = new ZipArchive(Response.Body, ZipArchiveMode.Create, leaveOpen: true))
+                {
+                    var entradaAudio = zip.CreateEntry(nombreAudio, CompressionLevel.NoCompression);
+                    await using (var destino = entradaAudio.Open())
+                    await using (var origen = System.IO.File.OpenRead(rutaAudio))
+                    {
+                        await origen.CopyToAsync(destino, 81920, cancellationToken);
+                    }
+
+                    if (portada != null)
+                    {
+                        var entradaPortada = zip.CreateEntry(nombrePortada, CompressionLevel.NoCompression);
+                        await using var destinoPortada = entradaPortada.Open();
+                        await destinoPortada.WriteAsync(portada.AsMemory(), cancellationToken);
+                    }
+
+                    if (tieneLetra)
+                        await EscribirTextoEnZipAsync(zip, "letra.txt", pista.Letra, cancellationToken);
+
+                    if (tieneLetraSincronizada)
+                        await EscribirTextoEnZipAsync(zip, "letra.lrc", letraSincronizada, cancellationToken);
+
+                    var informacion = new
+                    {
+                        pista = new
+                        {
+                            pista.Id,
+                            pista.Nombre,
+                            pista.Interprete,
+                            album = new
+                            {
+                                id = pista.AlbumId,
+                                nombre = pista.AlbumNombre,
+                                artista = pista.Interprete,
+                                portada = pista.PortadaUrl
+                            },
+                            pista.AnoCreacion,
+                            genero = pista.GeneroNombre,
+                            duracionSegundos = pista.DuracionSegundos,
+                            duracionMinutos = Math.Round(pista.DuracionSegundos / 60d, 2),
+                            duracion = FormatoDuracion.Formatear(pista.DuracionSegundos),
+                            pista.Reproducciones,
+                            archivoAudio = nombreAudio,
+                            archivoPortada = nombrePortada,
+                            archivoLetra = tieneLetra ? "letra.txt" : null,
+                            archivoLetraSincronizada = tieneLetraSincronizada ? "letra.lrc" : null,
+                            letra = pista.Letra,
+                            letraSincronizada
+                        }
+                    };
+
+                    var entradaJson = zip.CreateEntry("pista.json", CompressionLevel.Optimal);
+                    await using (var stream = entradaJson.Open())
+                    {
+                        await JsonSerializer.SerializeAsync(stream, informacion, OpcionesJson, cancellationToken);
+                    }
+                }
+
+                return new EmptyResult();
+            }
+            catch (OperationCanceledException)
+            {
+                // El cliente canceló la descarga; la respuesta ya no se puede completar.
+                return new EmptyResult();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error al preparar la descarga de la pista {id}: {ex}");
+                if (Response.HasStarted)
+                    return new EmptyResult();
+
+                return StatusCode(500, new { error = "No se pudo preparar la descarga de la pista." });
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPistaAsync(Guid id)
         {
@@ -338,6 +511,153 @@ namespace AntaraSoft.Api.Controllers
                 return StatusCode(500);
             }
         }
+
+        private static readonly JsonSerializerOptions OpcionesJson = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        private static async Task EscribirTextoEnZipAsync(
+            ZipArchive zip,
+            string nombre,
+            string contenido,
+            CancellationToken cancellationToken)
+        {
+            var entrada = zip.CreateEntry(nombre, CompressionLevel.Optimal);
+            await using var stream = entrada.Open();
+            await using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+            await writer.WriteAsync(contenido.AsMemory(), cancellationToken);
+        }
+
+        /// <summary>
+        /// Obtiene la portada del album desde una URL remota o desde un archivo
+        /// local de <c>wwwroot</c>. Si no se puede leer, el paquete se genera igual.
+        /// </summary>
+        private async Task<(byte[] Contenido, string Extension)> ObtenerPortadaAsync(
+            string portadaUrl,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(portadaUrl))
+                return (null, null);
+
+            if (Uri.TryCreate(portadaUrl, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                try
+                {
+                    using var cliente = _httpClientFactory.CreateClient("metadatos");
+                    using var respuesta = await cliente.GetAsync(
+                        uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+                    if (!respuesta.IsSuccessStatusCode)
+                        return (null, null);
+
+                    var tipo = respuesta.Content.Headers.ContentType?.MediaType ?? string.Empty;
+                    if (!tipo.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                        return (null, null);
+                    if (respuesta.Content.Headers.ContentLength > MaximoPortadaBytes)
+                        return (null, null);
+
+                    await using var origen = await respuesta.Content.ReadAsStreamAsync(cancellationToken);
+                    var contenido = await LeerConLimiteAsync(origen, MaximoPortadaBytes, cancellationToken);
+                    return contenido == null ? (null, null) : (contenido, ExtensionDeImagen(tipo, uri.AbsolutePath));
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    return (null, null);
+                }
+            }
+
+            if (portadaUrl.StartsWith("/", StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(_entorno.WebRootPath))
+            {
+                try
+                {
+                    var raiz = Path.GetFullPath(_entorno.WebRootPath);
+                    var ruta = Path.GetFullPath(Path.Combine(raiz, portadaUrl.TrimStart('/')));
+
+                    if (!ruta.StartsWith(raiz, StringComparison.OrdinalIgnoreCase) ||
+                        !System.IO.File.Exists(ruta))
+                        return (null, null);
+
+                    var info = new FileInfo(ruta);
+                    if (info.Length > MaximoPortadaBytes)
+                        return (null, null);
+
+                    var contenido = await System.IO.File.ReadAllBytesAsync(ruta, cancellationToken);
+                    return (contenido, ExtensionDeImagen(null, ruta));
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    return (null, null);
+                }
+            }
+
+            return (null, null);
+        }
+
+        private static async Task<byte[]> LeerConLimiteAsync(
+            Stream origen,
+            int maximo,
+            CancellationToken cancellationToken)
+        {
+            using var memoria = new MemoryStream();
+            var buffer = new byte[81920];
+            int leidos;
+
+            while ((leidos = await origen.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+            {
+                if (memoria.Length + leidos > maximo)
+                    return null;
+
+                await memoria.WriteAsync(buffer.AsMemory(0, leidos), cancellationToken);
+            }
+
+            return memoria.ToArray();
+        }
+
+        private static string ExtensionDeImagen(string tipoContenido, string ruta)
+        {
+            var porTipo = tipoContenido?.ToLowerInvariant() switch
+            {
+                "image/jpeg" => ".jpg",
+                "image/png" => ".png",
+                "image/webp" => ".webp",
+                "image/gif" => ".gif",
+                _ => null
+            };
+
+            if (porTipo != null)
+                return porTipo;
+
+            var extension = Path.GetExtension(ruta)?.ToLowerInvariant();
+            return extension switch
+            {
+                ".jpg" or ".jpeg" => ".jpg",
+                ".png" => ".png",
+                ".webp" => ".webp",
+                ".gif" => ".gif",
+                _ => ".jpg"
+            };
+        }
+
+        private static string LimpiarNombreArchivo(string valor, string respaldo)
+        {
+            var invalidos = Path.GetInvalidFileNameChars();
+            var limpio = new string((valor ?? string.Empty)
+                .Select(c => invalidos.Contains(c) || c == '\n' || c == '\r' ? '_' : c)
+                .ToArray())
+                .Trim();
+
+            if (string.IsNullOrWhiteSpace(limpio))
+                limpio = respaldo;
+
+            return limpio.Length > 100 ? limpio.Substring(0, 100).Trim() : limpio;
+        }
+
+        private static string NombreAscii(string nombre) =>
+            new(nombre.Select(c => c <= 127 ? c : '_').ToArray());
 
         private static string GetContentType(string filePath)
         {

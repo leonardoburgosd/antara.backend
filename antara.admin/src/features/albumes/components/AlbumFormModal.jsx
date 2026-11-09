@@ -3,7 +3,7 @@ import { Modal } from '../../../components/ui/Modal'
 import { Input } from '../../../components/ui/Input'
 import { Select } from '../../../components/ui/Select'
 import { Button } from '../../../components/ui/Button'
-import { IconAlertCircle } from '../../../components/ui/Icons'
+import { IconAlertCircle, IconDisc } from '../../../components/ui/Icons'
 
 const estadoInicial = (album) => ({
   nombre: album?.nombre ?? '',
@@ -18,12 +18,17 @@ export const AlbumFormModal = ({ isOpen, album, onClose, onSubmit }) => {
   const [valores, setValores] = useState(() => estadoInicial(album))
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [portadaError, setPortadaError] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
     setValores(estadoInicial(album))
     setError('')
   }, [isOpen, album])
+
+  useEffect(() => {
+    setPortadaError(false)
+  }, [valores.portadaUrl])
 
   const esEdicion = Boolean(album?.id)
 
@@ -105,6 +110,29 @@ export const AlbumFormModal = ({ isOpen, album, onClose, onSubmit }) => {
           onChange={setCampo('portadaUrl')}
           placeholder="https://..."
         />
+
+        {valores.portadaUrl?.trim() && (
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/40">
+              {portadaError ? (
+                <IconDisc className="h-6 w-6 text-white/25" />
+              ) : (
+                <img
+                  src={valores.portadaUrl}
+                  alt="Portada del álbum"
+                  className="h-full w-full object-cover"
+                  onError={() => setPortadaError(true)}
+                />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-white/30">Portada actual</p>
+              <p className="mt-1 text-xs text-white/45">
+                Así se muestra en las canciones del álbum y en el reproductor.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Select

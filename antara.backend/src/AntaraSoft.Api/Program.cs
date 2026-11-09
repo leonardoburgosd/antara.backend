@@ -130,6 +130,9 @@ if (appSettingsInicial.LetrasProveedor == null || appSettingsInicial.LetrasProve
     builder.Services.AddSingleton<ILetrasProvider>(sp => new LyricsOvhProvider(
         sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, letrasConfig));
 }
+// LRCLIB no requiere clave y se usa para la letra sincronizada del reproductor.
+builder.Services.AddSingleton<ILetrasSincronizadasProvider>(sp => new LrcLibProvider(
+    sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial));
 builder.Services.AddSingleton<EnriquecedorMetadatos>();
 builder.Services.AddSingleton<IEscaneoAudioService, EscaneoAudioService>();
 builder.Services.AddTransient<ISubidaPistaService, SubidaPistaService>();

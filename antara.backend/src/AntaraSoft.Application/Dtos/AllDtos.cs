@@ -84,6 +84,10 @@ namespace AntaraSoft.Application
         public string Letra { get; set; }
         public string ImagenArtista { get; set; }
         public int DuracionSegundos { get; set; }
+        /// <summary>Duración total en minutos, con decimales, para calcular el avance.</summary>
+        public double DuracionMinutos => Math.Round(DuracionSegundos / 60d, 2);
+        /// <summary>Duración legible, por ejemplo "3:48" o "1:02:05".</summary>
+        public string Duracion => FormatoDuracion.Formatear(DuracionSegundos);
         public string FuenteMetadatos { get; set; }
         public string IdExternoMetadatos { get; set; }
     }
@@ -100,6 +104,10 @@ namespace AntaraSoft.Application
         public int GeneroId { get; set; }
         public string GeneroNombre { get; set; }
         public int DuracionSegundos { get; set; }
+        /// <summary>Duración total en minutos, con decimales, para calcular el avance.</summary>
+        public double DuracionMinutos => Math.Round(DuracionSegundos / 60d, 2);
+        /// <summary>Duración legible, por ejemplo "3:48" o "1:02:05".</summary>
+        public string Duracion => FormatoDuracion.Formatear(DuracionSegundos);
         public int Reproducciones { get; set; }
         public DateTime FechaRegistro { get; set; }
         public string Url { get; set; }
@@ -296,6 +304,11 @@ namespace AntaraSoft.Application
         public string RutaDestino { get; set; }
         public Guid RutaId { get; set; }
         public string RutaNombre { get; set; }
+        public int DuracionSegundos { get; set; }
+        /// <summary>Duración total en minutos, con decimales, para calcular el avance.</summary>
+        public double DuracionMinutos => Math.Round(DuracionSegundos / 60d, 2);
+        /// <summary>Duración legible, por ejemplo "3:48" o "1:02:05".</summary>
+        public string Duracion => FormatoDuracion.Formatear(DuracionSegundos);
         public string Mensaje { get; set; }
     }
 
@@ -406,6 +419,7 @@ namespace AntaraSoft.Application
         public string PortadaUrl { get; set; }
         public string ImagenArtista { get; set; }
         public int Ano { get; set; }
+        public int DuracionSegundos { get; set; }
         public bool TieneLetra { get; set; }
         public string Estado { get; set; }
         public string Mensaje { get; set; }

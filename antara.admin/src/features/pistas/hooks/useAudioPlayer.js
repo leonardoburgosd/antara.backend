@@ -51,7 +51,8 @@ export function useAudioPlayer({ onToast = () => {} } = {}) {
       audio.src = pistaService.getStreamUrl(pista.id)
       audio.currentTime = 0
       setProgreso(0)
-      setDuracionAudio(0)
+      // La API ya conoce la duración: el total se muestra antes de cargar el audio.
+      setDuracionAudio(pista.duracionSegundos || 0)
       setReproduciendoId(pista.id)
 
       try {
@@ -78,10 +79,14 @@ export function useAudioPlayer({ onToast = () => {} } = {}) {
     setDuracionAudio(0)
   }, [])
 
-  const buscarTiempo = useCallback((evento) => {
+  // Acepta el evento del slider o un segundo concreto (por ejemplo, al pulsar
+  // un verso de la letra sincronizada).
+  const buscarTiempo = useCallback((entrada) => {
     const audio = audioRef.current
     if (!audio) return
-    const valor = Number(evento.target.value) || 0
+
+    const solicitado = typeof entrada === 'number' ? entrada : Number(entrada?.target?.value) || 0
+    const valor = Math.max(0, audio.duration > 0 ? Math.min(solicitado, audio.duration) : solicitado)
     audio.currentTime = valor
     setProgreso(valor)
   }, [])

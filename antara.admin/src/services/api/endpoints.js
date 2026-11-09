@@ -45,6 +45,8 @@ export const ENDPOINTS = {
     METADATA_PROVIDERS: '/api/pista/metadatos/proveedores',
     SEARCH_METADATA: '/api/pista/metadatos/buscar',
     UPDATE_METADATA: (id) => `/api/pista/${id}/metadatos`,
+    LETRA_SINCRONIZADA: (id) => `/api/pista/${id}/letra-sincronizada`,
+    DESCARGA: (id) => `/api/pista/${id}/descarga`,
     PLAY: (id) => `/reproducir/${id}`,
   },
   RUTAS_AUDIO: {

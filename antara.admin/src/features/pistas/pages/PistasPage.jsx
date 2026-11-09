@@ -281,9 +281,11 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
           onVolumen={cambiarVolumen}
           onSilenciar={alternarSilencio}
           onBuscar={buscarTiempo}
+          onBuscarTiempo={buscarTiempo}
           onCerrar={() => setDetalle(null)}
           onReproducir={() => alternarReproduccion(detalle)}
           onEditarMetadatos={() => setPistaMetadatos(detalle)}
+          onToast={onToast}
         />
       )}
 

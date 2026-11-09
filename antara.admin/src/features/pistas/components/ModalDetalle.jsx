@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react'
 import { formatDuration, formatNumber, formatDate } from '../../../utils/formatters'
+import { pistaService } from '../services/pistaService'
+import { LetraSincronizada } from './LetraSincronizada'
 import {
   IconDisc,
+  IconDownload,
   IconClose,
   IconPlay,
   IconPause,
@@ -56,11 +60,60 @@ export const ModalDetalle = ({
   onCerrar,
   onReproducir,
   onEditarMetadatos,
+  onBuscarTiempo,
+  onToast = () => {},
 }) => {
+  const [letraSincronizada, setLetraSincronizada] = useState(null)
+  const [cargandoLetra, setCargandoLetra] = useState(false)
+  const [descargando, setDescargando] = useState(false)
+
+  // La letra LRC se pide al abrir el detalle y se cachea en el backend.
+  useEffect(() => {
+    if (!pista?.id) return undefined
+
+    const controlador = new AbortController()
+    setLetraSincronizada(null)
+    setCargandoLetra(true)
+
+    pistaService
+      .getLetraSincronizada(pista.id, controlador.signal)
+      .then((lrc) => {
+        if (!controlador.signal.aborted) setLetraSincronizada(lrc)
+      })
+      .catch(() => {
+        if (!controlador.signal.aborted) setLetraSincronizada(null)
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCargandoLetra(false)
+      })
+
+    return () => controlador.abort()
+  }, [pista?.id])
+
   if (!pista) return null
 
   const nivelVolumen = silenciado ? 0 : Math.round((volumen || 0) * 100)
   const porcentaje = duracion > 0 ? Math.min(100, (progreso / duracion) * 100) : 0
+
+  const descargar = async () => {
+    setDescargando(true)
+    try {
+      const { blob, nombre } = await pistaService.descargarPista(pista.id)
+      const url = URL.createObjectURL(blob)
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = nombre
+      document.body.appendChild(enlace)
+      enlace.click()
+      enlace.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1500)
+      onToast(`«${pista.nombre}» se descargó con su audio, portada y letras.`)
+    } catch (err) {
+      onToast(err.message || 'No se pudo descargar la pista.')
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   return (
     <div
@@ -143,6 +196,16 @@ export const ModalDetalle = ({
                 Actualizar metadatos
               </button>
             )}
+            <button
+              type="button"
+              onClick={descargar}
+              disabled={descargando}
+              className="flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-2 text-xs text-white/70 transition hover:border-white/30 hover:bg-white/5 hover:text-white disabled:cursor-progress disabled:opacity-60"
+              title="Descargar audio, portada y letras para usarla sin conexión"
+            >
+              <IconDownload className="h-3.5 w-3.5" />
+              {descargando ? 'Preparando…' : 'Descargar'}
+            </button>
           </div>
 
           {activa && (
@@ -215,11 +278,25 @@ export const ModalDetalle = ({
           <div>
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] uppercase tracking-[0.25em] text-white/30">Letra</p>
-              {pista.tieneLetra && (
-                <span className="text-[9px] text-white/25">Obtenida desde lyrics.ovh</span>
+              {letraSincronizada ? (
+                <span className="text-[9px] text-emerald-200/60">Sincronizada con la reproducción</span>
+              ) : cargandoLetra ? (
+                <span className="text-[9px] text-white/25">Buscando letra sincronizada…</span>
+              ) : (
+                pista.tieneLetra && (
+                  <span className="text-[9px] text-white/25">Obtenida desde lyrics.ovh</span>
+                )
               )}
             </div>
-            {pista.tieneLetra && pista.letra ? (
+            {letraSincronizada ? (
+              <LetraSincronizada
+                letra={letraSincronizada}
+                progreso={progreso}
+                duracion={duracion}
+                activa={activa}
+                onIrA={onBuscarTiempo}
+              />
+            ) : pista.tieneLetra && pista.letra ? (
               <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-xs leading-6 text-white/60">
                 {pista.letra}
               </div>

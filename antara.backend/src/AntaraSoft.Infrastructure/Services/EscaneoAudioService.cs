@@ -406,6 +406,7 @@ namespace AntaraSoft.Infrastructure.Services
                 PortadaUrl = metadatos.PortadaUrl,
                 ImagenArtista = metadatos.ImagenArtistaUrl,
                 Ano = metadatos.Ano,
+                DuracionSegundos = pista.DuracionSegundos,
                 TieneLetra = !string.IsNullOrWhiteSpace(metadatos.Letra),
                 Estado = metadatos.Encontrado ? "nuevo" : "sin_metadatos",
                 Mensaje = metadatos.Encontrado

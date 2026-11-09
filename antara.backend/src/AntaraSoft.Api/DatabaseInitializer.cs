@@ -445,41 +445,45 @@ namespace AntaraSoft.Api
                     $$ LANGUAGE plpgsql;
 
                     -- ObtenerPista
+                    DROP FUNCTION IF EXISTS ""ObtenerPista""(UUID);
                     CREATE OR REPLACE FUNCTION ""ObtenerPista""(p_Id UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
                         FROM ""Pista"" pi WHERE pi.""Id"" = p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
 
                     -- ObtenerTodosPistasDeAlbum
+                    DROP FUNCTION IF EXISTS ""ObtenerTodosPistasDeAlbum""(UUID);
                     CREATE OR REPLACE FUNCTION ""ObtenerTodosPistasDeAlbum""(p_AlbumId UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
                         FROM ""Pista"" pi WHERE pi.""AlbumId"" = p_AlbumId;
                     END;
                     $$ LANGUAGE plpgsql;
 
                     -- ObtenerTodosPistasDePlaylist
+                    DROP FUNCTION IF EXISTS ""ObtenerTodosPistasDePlaylist""(UUID);
                     CREATE OR REPLACE FUNCTION ""ObtenerTodosPistasDePlaylist""(p_PlaylistId UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
                         FROM ""Pista"" pi INNER JOIN ""PlaylistPista"" pp ON pi.""Id"" = pp.""PistaId"" WHERE pp.""PlaylistId"" = p_PlaylistId;
                     END;
                     $$ LANGUAGE plpgsql;
 
                     -- BuscarPistas
+                    DROP FUNCTION IF EXISTS ""BuscarPistas""(VARCHAR);
                     CREATE OR REPLACE FUNCTION ""BuscarPistas""(p_Busqueda VARCHAR)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
                         FROM ""Pista"" pi WHERE LOWER(pi.""Nombre"") LIKE LOWER('%' || p_Busqueda || '%') OR LOWER(pi.""Interprete"") LIKE LOWER('%' || p_Busqueda || '%');
                     END;
                     $$ LANGUAGE plpgsql;

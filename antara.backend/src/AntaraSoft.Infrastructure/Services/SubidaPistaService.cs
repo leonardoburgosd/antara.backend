@@ -191,6 +191,7 @@ namespace AntaraSoft.Infrastructure.Services
                 RutaDestino = destino,
                 RutaId = ruta.Id,
                 RutaNombre = ruta.Nombre,
+                DuracionSegundos = importado.DuracionSegundos,
                 Mensaje = importado.Mensaje
             };
         }

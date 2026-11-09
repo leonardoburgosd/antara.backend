@@ -92,6 +92,45 @@ export const pistaService = {
     return response.json()
   },
 
+  // Letra LRC con marcas de tiempo; null si la canción no tiene versión sincronizada.
+  async getLetraSincronizada(pistaId, signal) {
+    const response = await apiClient.get(ENDPOINTS.PISTAS.LETRA_SINCRONIZADA(pistaId), { signal })
+    if (response.status === 404) return null
+    if (!response.ok) {
+      const msg = await parseErrorMessage(response, 'No se pudo cargar la letra sincronizada.')
+      throw new ApiError(msg, response.status)
+    }
+    const data = await response.json()
+    return data?.letraSincronizada || null
+  },
+
+  // Paquete offline: audio, portada, letras y datos de la pista en un ZIP.
+  async descargarPista(pistaId) {
+    const response = await apiClient.get(ENDPOINTS.PISTAS.DESCARGA(pistaId), {
+      timeout: 5 * 60 * 1000,
+    })
+
+    if (!response.ok) {
+      const msg = await parseErrorMessage(response, 'No se pudo descargar la pista.')
+      throw new ApiError(msg, response.status)
+    }
+
+    const disposicion = response.headers.get('Content-Disposition') || ''
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposicion)
+    const simple = /filename="?([^";]+)"?/i.exec(disposicion)
+
+    let nombre = simple?.[1]?.trim() || 'pista.zip'
+    if (utf8?.[1]) {
+      try {
+        nombre = decodeURIComponent(utf8[1].trim())
+      } catch {
+        // Se conserva el nombre simple si el encabezado no se puede decodificar.
+      }
+    }
+
+    return { blob: await response.blob(), nombre }
+  },
+
   getStreamUrl(pistaId) {
     return ENDPOINTS.PISTAS.STREAM(pistaId)
   },

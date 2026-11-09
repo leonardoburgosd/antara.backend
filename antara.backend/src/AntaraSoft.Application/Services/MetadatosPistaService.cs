@@ -17,16 +17,39 @@ namespace AntaraSoft.Application.Services
     {
         private readonly List<IMetadataProvider> _providers;
         private readonly ILetrasProvider _letrasProvider;
+        private readonly ILetrasSincronizadasProvider _letrasSincronizadas;
         private readonly Contracts.Repository.IBibliotecaRepository _bibliotecaRepository;
 
         public MetadatosPistaService(
             IEnumerable<IMetadataProvider> metadataProviders,
             ILetrasProvider letrasProvider,
+            ILetrasSincronizadasProvider letrasSincronizadas,
             Contracts.Repository.IBibliotecaRepository bibliotecaRepository)
         {
             _providers = metadataProviders?.ToList() ?? new List<IMetadataProvider>();
             _letrasProvider = letrasProvider;
+            _letrasSincronizadas = letrasSincronizadas;
             _bibliotecaRepository = bibliotecaRepository;
+        }
+
+        public async Task<string> ObtenerLetraSincronizadaAsync(Guid pistaId, CancellationToken cancellationToken)
+        {
+            if (pistaId == Guid.Empty)
+                throw new ArgumentException("La pista no es valida.", nameof(pistaId));
+
+            var pista = await _bibliotecaRepository.ObtenerPistaBiblioteca(pistaId);
+            if (pista == null)
+                throw new KeyNotFoundException("La pista no existe.");
+
+            if (_letrasSincronizadas == null)
+                return null;
+
+            return await _letrasSincronizadas.ObtenerAsync(
+                pista.Interprete,
+                pista.Nombre,
+                pista.AlbumNombre,
+                pista.DuracionSegundos,
+                cancellationToken);
         }
 
         public List<ProveedorMetadatosDto> ObtenerProveedores() =>
