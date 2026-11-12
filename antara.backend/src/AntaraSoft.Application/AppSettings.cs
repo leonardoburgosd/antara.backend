@@ -92,6 +92,14 @@ namespace AntaraSoft.Application
                 Tipo = "itunes",
                 BaseUrl = "https://itunes.apple.com",
                 Prioridad = 3
+            },
+            new ProveedorMetadatosConfig
+            {
+                Nombre = "lrclib",
+                Etiqueta = "LRCLIB",
+                Tipo = "lrclib",
+                BaseUrl = "https://lrclib.net",
+                Prioridad = 4
             }
         };
     }
@@ -109,7 +117,7 @@ namespace AntaraSoft.Application
         /// <summary>Nombre visible en el panel; si falta, se usa <see cref="Nombre"/>.</summary>
         public string Etiqueta { get; set; }
 
-        /// <summary>Adaptador a usar: "deezer" o "theaudiodb".</summary>
+        /// <summary>Adaptador a usar: "deezer", "theaudiodb", "musicbrainz", "itunes" o "lrclib".</summary>
         public string Tipo { get; set; }
 
         /// <summary>URL base del API del proveedor.</summary>

@@ -80,7 +80,9 @@ namespace AntaraSoft.Infrastructure.Services
             string nombreArchivo,
             Stream contenido,
             Guid usuarioId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool soloPredeterminada = false,
+            Guid? propietarioId = null)
         {
             if (contenido == null)
                 throw new ArgumentException("Adjunta el archivo de audio que quieres subir.");
@@ -93,7 +95,7 @@ namespace AntaraSoft.Infrastructure.Services
             if (!ExtensionesAudio.Contains(extension))
                 throw new ArgumentException($"Solo se permiten archivos de audio ({FormatosPermitidos}).");
 
-            var (ruta, destino) = await ResolverDestinoAsync(rutaId, subcarpeta);
+            var (ruta, destino) = await ResolverDestinoAsync(rutaId, subcarpeta, soloPredeterminada);
             var archivoFinal = NombreDisponible(destino, nombreOriginal);
 
             try
@@ -110,15 +112,28 @@ namespace AntaraSoft.Infrastructure.Services
                 throw;
             }
 
-            return await ImportarYResponderAsync(ruta, destino, archivoFinal, usuarioId, cancellationToken);
+            return await ImportarYResponderAsync(
+                ruta, destino, archivoFinal, usuarioId, propietarioId, cancellationToken);
         }
+
+        public Task<SubidaPistaDto> SubirPropiaAsync(
+            string subcarpeta,
+            string nombreArchivo,
+            Stream contenido,
+            Guid usuarioId,
+            CancellationToken cancellationToken = default) =>
+            SubirAsync(
+                null, subcarpeta, nombreArchivo, contenido, usuarioId, cancellationToken,
+                soloPredeterminada: true, propietarioId: usuarioId);
 
         public async Task<SubidaPistaDto> SubirDesdeUrlAsync(
             Guid? rutaId,
             string subcarpeta,
             string url,
             Guid usuarioId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool soloPredeterminada = false,
+            Guid? propietarioId = null)
         {
             if (string.IsNullOrWhiteSpace(url))
                 throw new ArgumentException("Ingresa el enlace de YouTube de la canción.");
@@ -130,22 +145,34 @@ namespace AntaraSoft.Infrastructure.Services
             if (usuarioId == Guid.Empty)
                 throw new ArgumentException("No se pudo identificar al usuario que sube el archivo.");
 
-            var (ruta, destino) = await ResolverDestinoAsync(rutaId, subcarpeta);
+            var (ruta, destino) = await ResolverDestinoAsync(rutaId, subcarpeta, soloPredeterminada);
 
             var descarga = await _descargador.DescargarAsync(url, destino, cancellationToken);
             if (descarga == null || string.IsNullOrWhiteSpace(descarga.Archivo) || !File.Exists(descarga.Archivo))
                 throw new InvalidOperationException("La descarga de YouTube no generó ningún archivo de audio.");
 
             var resultado = await ImportarYResponderAsync(
-                ruta, destino, descarga.Archivo, usuarioId, cancellationToken);
+                ruta, destino, descarga.Archivo, usuarioId, propietarioId, cancellationToken);
 
             resultado.Mensaje = $"Audio descargado desde YouTube. {resultado.Mensaje}";
             return resultado;
         }
 
-        private async Task<(RutaAudio ruta, string destino)> ResolverDestinoAsync(Guid? rutaId, string subcarpeta)
+        public Task<SubidaPistaDto> SubirPropiaDesdeUrlAsync(
+            string subcarpeta,
+            string url,
+            Guid usuarioId,
+            CancellationToken cancellationToken = default) =>
+            SubirDesdeUrlAsync(
+                null, subcarpeta, url, usuarioId, cancellationToken,
+                soloPredeterminada: true, propietarioId: usuarioId);
+
+        private async Task<(RutaAudio ruta, string destino)> ResolverDestinoAsync(
+            Guid? rutaId,
+            string subcarpeta,
+            bool soloPredeterminada)
         {
-            var ruta = await ObtenerRutaDestino(rutaId);
+            var ruta = await ObtenerRutaDestino(rutaId, soloPredeterminada);
             var raiz = _resolver.ResolverDirectorio(ruta.RutaFisica, ruta.RutaContenedor);
 
             if (string.IsNullOrWhiteSpace(raiz) || !Directory.Exists(raiz))
@@ -166,12 +193,15 @@ namespace AntaraSoft.Infrastructure.Services
             string destino,
             string archivoFinal,
             Guid usuarioId,
+            Guid? propietarioId,
             CancellationToken cancellationToken)
         {
             EscaneoAudioResultadoDto importado;
             try
             {
-                importado = await _escaneo.ImportarArchivoAsync(archivoFinal, usuarioId, cancellationToken);
+                importado = propietarioId.HasValue
+                    ? await _escaneo.ImportarArchivoPropioAsync(archivoFinal, propietarioId.Value, cancellationToken)
+                    : await _escaneo.ImportarArchivoAsync(archivoFinal, usuarioId, cancellationToken);
             }
             catch (Exception err)
             {
@@ -196,8 +226,20 @@ namespace AntaraSoft.Infrastructure.Services
             };
         }
 
-        private async Task<RutaAudio> ObtenerRutaDestino(Guid? rutaId)
+        private async Task<RutaAudio> ObtenerRutaDestino(Guid? rutaId, bool soloPredeterminada)
         {
+            var activas = (await _rutas.ObtenerTodas()).Where(ruta => ruta.EstaActiva).ToList();
+
+            if (soloPredeterminada)
+            {
+                var rutaPredeterminada = activas.FirstOrDefault(ruta => ruta.EsPredeterminada);
+                if (rutaPredeterminada == null)
+                    throw new InvalidOperationException(
+                        "No hay una ruta de audio predeterminada activa. Un administrador debe marcarla antes de subir pistas.");
+
+                return rutaPredeterminada;
+            }
+
             if (rutaId.HasValue && rutaId.Value != Guid.Empty)
             {
                 var seleccionada = await _rutas.ObtenerPorId(rutaId.Value);
@@ -210,7 +252,6 @@ namespace AntaraSoft.Infrastructure.Services
                 return seleccionada;
             }
 
-            var activas = (await _rutas.ObtenerTodas()).Where(ruta => ruta.EstaActiva).ToList();
             var predeterminada = activas.FirstOrDefault(ruta => ruta.EsPredeterminada) ?? activas.FirstOrDefault();
 
             if (predeterminada == null)

@@ -71,7 +71,11 @@ namespace AntaraSoft.Infrastructure.Metadata
 
             try
             {
-                metadatos.Letra = await _letrasProvider.ObtenerAsync(artistaParaLetra, tituloParaLetra, cancellationToken);
+                // No borrar una letra que ya trajo el proveedor de metadatos
+                // (LRCLIB la incluye) cuando lyrics.ovh no encuentra nada.
+                var letra = await _letrasProvider.ObtenerAsync(artistaParaLetra, tituloParaLetra, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(letra))
+                    metadatos.Letra = letra;
             }
             catch (OperationCanceledException)
             {

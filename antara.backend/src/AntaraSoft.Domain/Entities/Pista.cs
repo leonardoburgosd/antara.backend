@@ -15,6 +15,8 @@ namespace AntaraSoft.Domain.Entities
         public int GeneroId { get; set; }
         public string Url { get; set; }
         public Guid AlbumId { get; set; }
+        /// <summary>Usuario dueno de la pista; null para la biblioteca global.</summary>
+        public Guid? UsuarioId { get; set; }
         public bool EstaActivo { get; set; }
         // Metadatos obtenidos del proveedor externo durante el escaneo de rutas.
         public string Letra { get; set; }

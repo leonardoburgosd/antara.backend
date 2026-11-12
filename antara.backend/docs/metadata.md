@@ -31,7 +31,7 @@ es una lista y cada entrada describe una instancia:
 |---|---|
 | `Nombre` | Identificador que usan la API y el panel (`?proveedor=deezer`) |
 | `Etiqueta` | Nombre visible en el selector del panel |
-| `Tipo` | Adaptador que interpreta la respuesta: `deezer`, `theaudiodb`, `musicbrainz`, `itunes` |
+| `Tipo` | Adaptador que interpreta la respuesta: `deezer`, `theaudiodb`, `musicbrainz`, `itunes`, `lrclib` |
 | `BaseUrl` | URL base del API (permite espejos o versiones distintas) |
 | `ApiKey` | Clave del API, si el proveedor la requiere |
 | `Prioridad` | Menor se consulta primero durante el escaneo |
@@ -89,6 +89,19 @@ es una lista y cada entrada describe una instancia:
 
 > [!NOTE]
 > La Search API de iTunes es gratuita y sin clave, pero Apple limita a unas **20 peticiones por minuto**; el adaptador espera 1,5 s entre llamadas. El catálogo depende de la tienda regional del servidor (por defecto, Estados Unidos).
+
+---
+
+### Adaptador LRCLIB (`LrcLibMetadataProvider`)
+
+- **API base por defecto:** `https://lrclib.net` (configurable por instancia)
+- **Búsqueda:** `GET /api/search?track_name={titulo}&artist_name={artista}` (máximo 20 resultados; el buscador libre del panel usa `GET /api/search?q={consulta}`)
+- **Por ID:** `GET /api/get/{id}`
+- **Firma exacta:** `GET /api/get?artist_name=...&track_name=...&album_name=...&duration=...` (la usa el endpoint de letra sincronizada; la duración debe coincidir con ±2 s)
+- **Datos obtenidos:** título, artista, álbum, duración y letra plana (`plainLyrics`); también informa si existe letra sincronizada (`syncedLyrics`) y si la pista es instrumental
+
+> [!NOTE]
+> LRCLIB no requiere clave ni registro y no publica portadas, género ni año. Sus límites aproximados son **45 peticiones/minuto** para clientes genéricos y **90** para clientes identificados; el adaptador espera 350 ms entre llamadas, envía el `User-Agent` de `Antara/1.0` y respeta `Retry-After` cuando recibe `429`.
 
 ---
 
@@ -267,6 +280,14 @@ public class MetadatosAudio
         "BaseUrl": "https://itunes.apple.com",
         "Prioridad": 3,
         "Habilitado": true
+      },
+      {
+        "Nombre": "lrclib",
+        "Etiqueta": "LRCLIB",
+        "Tipo": "lrclib",
+        "BaseUrl": "https://lrclib.net",
+        "Prioridad": 4,
+        "Habilitado": true
       }
     ],
     "LetrasProveedor": {
@@ -278,9 +299,9 @@ public class MetadatosAudio
 }
 ```
 
-Si `MetadatosProveedores` no se define, la API usa los cuatro proveedores
-predeterminados (`AppSettings.Predeterminados()`: Deezer, TheAudioDB, MusicBrainz
-e iTunes). Un `Tipo` desconocido se omite
+Si `MetadatosProveedores` no se define, la API usa los cinco proveedores
+predeterminados (`AppSettings.Predeterminados()`: Deezer, TheAudioDB, MusicBrainz,
+iTunes y LRCLIB). Un `Tipo` desconocido se omite
 con un aviso en stderr, sin impedir el arranque.
 
 ### Reemplazar la lista completa desde una variable de entorno
@@ -327,7 +348,7 @@ El `HttpClient` para metadatos se registra con nombre `"metadatos"` y tiene un t
 
 - **No implementar `ObtenerPorIdAsync`.** Se llama al aplicar metadatos desde el frontend. Lanza `NotImplementedException` en runtime.
 - **Devolver `null` desde `BuscarCandidatosAsync`.** Siempre devuelve `List<MetadatosAudio>` vacía si no hay resultados.
-- **Usar un `Tipo` sin adaptador.** La instancia no se registra (aviso en stderr), así que no aparece en el selector ni en el escaneo. Los `Tipo` válidos son `deezer`, `theaudiodb`, `musicbrainz` e `itunes`.
+- **Usar un `Tipo` sin adaptador.** La instancia no se registra (aviso en stderr), así que no aparece en el selector ni en el escaneo. Los `Tipo` válidos son `deezer`, `theaudiodb`, `musicbrainz`, `itunes` y `lrclib`.
 - **Pedir un proveedor no habilitado por nombre.** `GET /api/pista/metadatos/buscar?proveedor=x` responde `400` con la lista de proveedores disponibles; no cae silenciosamente a "todos".
 - **No manejar `OperationCanceledException` en el proveedor.** Debe propagarse para que el escaneo pueda cancelarse correctamente.
 

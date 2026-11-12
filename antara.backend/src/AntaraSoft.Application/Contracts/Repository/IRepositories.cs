@@ -77,9 +77,14 @@ namespace AntaraSoft.Application.Contracts.Repository
     {
         Task<HashSet<string>> ObtenerRutasRegistradas();
         Task<List<PistaBibliotecaDto>> ObtenerPistas();
+        Task<List<PistaBibliotecaDto>> ObtenerPistasDeUsuario(Guid usuarioId);
         Task<PistaBibliotecaDto> ObtenerPistaBiblioteca(Guid id);
         Task ActualizarMetadatosPista(Pista pista);
-        Task<Guid> ObtenerOCrearAlbum(Album album);
+
+        /// <summary>Actualiza solo los datos editables por el propietario, sin tocar letra ni metadatos.</summary>
+        Task ActualizarDatosPista(Pista pista);
+        Task<Guid> ObtenerOCrearAlbum(Album album, bool soloPropietario = false);
+        Task<bool> ActualizarPortadaAlbumDeUsuario(Guid albumId, Guid usuarioId, string portadaUrl);
         Task<int> ObtenerOCrearGenero(string nombre);
         Task CrearPista(Pista pista);
     }

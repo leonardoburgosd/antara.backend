@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { usePistas } from '../hooks/usePistas'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
+import { useColaSubidas } from '../context/ColaSubidasContext'
 import { formatNumber } from '../../../utils/formatters'
 
 import PistasMetrics from '../components/PistasMetrics'
@@ -42,6 +43,13 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
     actualizarPistaLocal,
   } = usePistas()
 
+  const { encolar, ultimaCompletada } = useColaSubidas()
+  const ultimaCompletadaEn = ultimaCompletada?.completadoEn
+
+  useEffect(() => {
+    if (ultimaCompletadaEn) cargar()
+  }, [ultimaCompletadaEn])
+
   const {
     audioRef,
     reproduciendoId,
@@ -80,15 +88,18 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
     setPistaSeleccionadaId((actual) => (actual === pistaId ? null : pistaId))
   }
 
-  const aplicarSubida = async (resultado) => {
-    if (!resultado) return
+  const encolarSubidas = (trabajos) => {
+    const cantidad = encolar(trabajos)
+    if (!cantidad) return 0
+
+    const primero = Array.isArray(trabajos) ? trabajos[0] : trabajos
     setSubirAbierto(false)
     onToast(
-      resultado.conMetadatos
-        ? `«${resultado.nombre}» se subió y se completaron sus metadatos.`
-        : `«${resultado.nombre}» se subió a ${resultado.rutaDestino}.`,
+      cantidad === 1
+        ? `«${primero?.nombre}» se agregó a la cola de subidas.`
+        : `${cantidad} subidas se agregaron a la cola.`,
     )
-    await cargar()
+    return cantidad
   }
 
   const aplicarMetadatosActualizados = (actualizada) => {
@@ -292,7 +303,7 @@ export const PistasPage = ({ onToast = () => {}, onEscanear }) => {
       <SubirPistaModal
         isOpen={subirAbierto}
         onClose={() => setSubirAbierto(false)}
-        onSubida={aplicarSubida}
+        onEncolar={encolarSubidas}
       />
 
       {pistaMetadatos && (

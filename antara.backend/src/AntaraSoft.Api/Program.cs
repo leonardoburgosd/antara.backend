@@ -117,6 +117,11 @@ foreach (var proveedor in proveedoresMetadatos)
                 sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, configurado));
             break;
 
+        case "lrclib":
+            builder.Services.AddSingleton<IMetadataProvider>(sp => new LrcLibMetadataProvider(
+                sp.GetRequiredService<IHttpClientFactory>(), appSettingsInicial, configurado));
+            break;
+
         default:
             Console.Error.WriteLine(
                 $"Proveedor de metadatos '{configurado.Nombre}' omitido: tipo '{configurado.Tipo}' no soportado.");

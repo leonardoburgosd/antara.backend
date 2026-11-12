@@ -80,6 +80,7 @@ namespace AntaraSoft.Application
         public int GeneroId { get; set; }
         public string Url { get; set; }
         public Guid AlbumId { get; set; }
+        public Guid? UsuarioId { get; set; }
         public bool EstaActivo { get; set; }
         public string Letra { get; set; }
         public string ImagenArtista { get; set; }
@@ -115,7 +116,30 @@ namespace AntaraSoft.Application
         public string Letra { get; set; }
         public string ImagenArtista { get; set; }
         public string FuenteMetadatos { get; set; }
+        public Guid? UsuarioId { get; set; }
         public bool EstaActivo { get; set; }
+    }
+
+    /// <summary>
+    /// Campos que el propietario de una pista puede editar sin volver a buscar
+    /// metadatos. Los campos ausentes conservan su valor actual.
+    /// </summary>
+    public class ActualizarMiPistaDto
+    {
+        public string? Nombre { get; set; }
+        public string? Interprete { get; set; }
+        public string? ImagenArtista { get; set; }
+        public int? AnoCreacion { get; set; }
+        public string? Genero { get; set; }
+        public string? AlbumNombre { get; set; }
+        public string? PortadaUrl { get; set; }
+    }
+
+    /// <summary>Subida de una pista propia desde un enlace de YouTube.</summary>
+    public class SubirMiPistaDesdeUrlDto
+    {
+        public string? Subcarpeta { get; set; }
+        public string Url { get; set; }
     }
 
     public class CrearPistaDto

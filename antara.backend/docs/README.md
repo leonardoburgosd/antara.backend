@@ -17,7 +17,7 @@
 | Npgsql | 8.0.5 | Driver PostgreSQL para .NET |
 | PostgreSQL | 16 | Base de datos relacional |
 | BCrypt.Net-Next | 4.0.3 | Hashing de contraseñas |
-| Swashbuckle.AspNetCore | 10.3.1 | Generación de Swagger UI |
+| Swashbuckle.AspNetCore | 10.3.1 | Dependencia incluida; Swagger UI no está habilitado en `Program.cs` |
 | Newtonsoft.Json | 13.0.1 | Serialización JSON auxiliar |
 
 ---
@@ -26,12 +26,13 @@
 
 | Documento | Contenido |
 |---|---|
+| [integracion.md](./integracion.md) | Guía para consumir la API desde otra aplicación: autenticación, módulos, pasos y ejemplos |
 | [architecture.md](./architecture.md) | Clean Architecture, capas, reglas de dependencia, flujo de request |
 | [domain.md](./domain.md) | Entidades, relaciones, excepciones de dominio, reglas de negocio |
 | [features.md](./features.md) | Guía paso a paso para agregar una nueva funcionalidad |
-| [api.md](./api.md) | Referencia completa de todos los endpoints HTTP |
+| [api.md](./api.md) | Índice exacto de endpoints, autenticación y reglas de acceso |
 | [database.md](./database.md) | Tablas, procedimientos almacenados, migraciones |
-| [metadata.md](./metadata.md) | Sistema de metadatos: Deezer, TheAudioDB, LyricsOvh |
+| [metadata.md](./metadata.md) | Sistema de metadatos: Deezer, TheAudioDB, MusicBrainz, iTunes, LRCLIB y LyricsOvh |
 | [security.md](./security.md) | Tokens HMAC-SHA256, BCrypt, filtros de autorización |
 | [audio-storage.md](./audio-storage.md) | Rutas de audio, HostPathResolver, escaneo de biblioteca |
 

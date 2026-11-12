@@ -14,7 +14,7 @@ Backend de plataforma de gestión y streaming de biblioteca musical desarrollado
 - **Docker & Docker Compose**
 - **BCrypt.Net-Next** (Seguridad de contraseñas)
 - **Tokens HMAC-SHA256** (Autenticación sin estado)
-- **Proveedores de Metadatos:** Deezer API, TheAudioDB API, Lyrics.ovh
+- **Proveedores de Metadatos:** Deezer API, TheAudioDB API, MusicBrainz, iTunes, LRCLIB y Lyrics.ovh
 
 ---
 
@@ -38,11 +38,12 @@ Para comprender cómo construir nuevas funcionalidades, respetar las reglas arqu
 2. [Arquitectura y Reglas de Dependencia](docs/architecture.md)
 3. [Modelo de Dominio](docs/domain.md)
 4. [Guía para Construir Nuevas Features](docs/features.md)
-5. [Referencia de Endpoints (API)](docs/api.md)
-6. [Base de Datos y Procedimientos Almacenados](docs/database.md)
-7. [Sistema de Enriquecimiento de Metadatos](docs/metadata.md)
-8. [Seguridad y Autenticación](docs/security.md)
-9. [Almacenamiento y Escaneo de Audio](docs/audio-storage.md)
+5. [Guía de Integración para Aplicaciones Externas](docs/integracion.md)
+6. [Referencia de Endpoints (API)](docs/api.md)
+7. [Base de Datos y Procedimientos Almacenados](docs/database.md)
+8. [Sistema de Enriquecimiento de Metadatos](docs/metadata.md)
+9. [Seguridad y Autenticación](docs/security.md)
+10. [Almacenamiento y Escaneo de Audio](docs/audio-storage.md)
 
 ---
 

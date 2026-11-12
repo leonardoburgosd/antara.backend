@@ -10,5 +10,7 @@ export { default as MiniPlayer } from './components/MiniPlayer'
 export { default as ModalDetalle } from './components/ModalDetalle'
 export { default as ModalMetadatos } from './components/ModalMetadatos'
 export { default as SubirPistaModal } from './components/SubirPistaModal'
+export { default as ColaSubidasPanel } from './components/ColaSubidasPanel'
+export { ColaSubidasProvider, useColaSubidas } from './context/ColaSubidasContext'
 export { default as PistaSeleccionadaBanner } from './components/PistaSeleccionadaBanner'
 

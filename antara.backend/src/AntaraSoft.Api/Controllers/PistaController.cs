@@ -28,6 +28,7 @@ namespace AntaraSoft.Api.Controllers
         private readonly IBibliotecaRepository _bibliotecaRepository;
         private readonly IMetadatosPistaService _metadatosPistaService;
         private readonly ISubidaPistaService _subidaPistaService;
+        private readonly ITokenService _tokenService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IWebHostEnvironment _entorno;
         private const string directorioId = "1hWAXKy5ZW8Y4A9ch93EmMzAfC8pyeDbd";
@@ -39,6 +40,7 @@ namespace AntaraSoft.Api.Controllers
             IBibliotecaRepository bibliotecaRepository,
             IMetadatosPistaService metadatosPistaService,
             ISubidaPistaService subidaPistaService,
+            ITokenService tokenService,
             IHttpClientFactory httpClientFactory,
             IWebHostEnvironment entorno)
         {
@@ -47,6 +49,7 @@ namespace AntaraSoft.Api.Controllers
             _bibliotecaRepository = bibliotecaRepository;
             _metadatosPistaService = metadatosPistaService;
             _subidaPistaService = subidaPistaService;
+            _tokenService = tokenService;
             _httpClientFactory = httpClientFactory;
             _entorno = entorno;
         }
@@ -218,7 +221,10 @@ namespace AntaraSoft.Api.Controllers
         {
             try
             {
-                var pistasList = (await _gestionarPistaService.ObtenerTodosPistasDeAlbum(AlbumId)).Select(item => item.AsDto());
+                var pistasList = (await _gestionarPistaService.ObtenerTodosPistasDeAlbum(AlbumId))
+                    .Select(item => item.AsDto())
+                    .Where(PuedeVer)
+                    .ToList();
                 return StatusCode(200, pistasList);
             }
             catch (Exception err)
@@ -232,7 +238,10 @@ namespace AntaraSoft.Api.Controllers
         {
             try
             {
-                var pistasList = (await _gestionarPistaService.ObtenerTodosPistasDePlaylist(PlaylistId)).Select(item => item.AsDto());
+                var pistasList = (await _gestionarPistaService.ObtenerTodosPistasDePlaylist(PlaylistId))
+                    .Select(item => item.AsDto())
+                    .Where(PuedeVer)
+                    .ToList();
                 return StatusCode(200, pistasList);
             }
             catch (Exception err)
@@ -488,8 +497,8 @@ namespace AntaraSoft.Api.Controllers
                     return BadRequest();
                 }
 
-                var pista = await _gestionarPistaService.ObtenerPista(id);
-                if (pista == null)
+                var pista = await _bibliotecaRepository.ObtenerPistaBiblioteca(id);
+                if (pista == null || !PuedeReproducir(pista))
                 {
                     return NotFound();
                 }
@@ -511,6 +520,53 @@ namespace AntaraSoft.Api.Controllers
                 return StatusCode(500);
             }
         }
+
+        /// <summary>
+        /// Las pistas de la biblioteca global son publicas. Las subidas por un
+        /// usuario exigen un token valido y solo las puede oir su dueno o un
+        /// administrador. Se responde 404 para no revelar que existen.
+        /// </summary>
+        private bool PuedeReproducir(PistaBibliotecaDto pista)
+        {
+            if (!pista.UsuarioId.HasValue)
+                return true;
+
+            var validacion = ObtenerValidacion();
+            return validacion != null &&
+                   (EsAdministrador(validacion) || validacion.UsuarioId == pista.UsuarioId.Value);
+        }
+
+        /// <summary>Filtra las pistas privadas en los listados heredados.</summary>
+        private bool PuedeVer(PistaDto pista)
+        {
+            if (!pista.UsuarioId.HasValue)
+                return true;
+
+            var validacion = ObtenerValidacion();
+            return validacion != null &&
+                   (EsAdministrador(validacion) || validacion.UsuarioId == pista.UsuarioId.Value);
+        }
+
+        private TokenValidationResult ObtenerValidacion()
+        {
+            var token = Request.Query["token"].FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                var encabezado = Request.Headers["Authorization"].ToString();
+                if (encabezado.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    token = encabezado.Substring("Bearer ".Length).Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(token))
+                return null;
+
+            var validacion = _tokenService.ValidarToken(token);
+            return validacion != null && validacion.EsValido ? validacion : null;
+        }
+
+        private static bool EsAdministrador(TokenValidationResult validacion) =>
+            string.Equals(validacion.Tipo, "admin", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(validacion.Tipo, "administrador", StringComparison.OrdinalIgnoreCase);
 
         private static readonly JsonSerializerOptions OpcionesJson = new()
         {
@@ -730,7 +786,10 @@ namespace AntaraSoft.Api.Controllers
         {
             try
             {
-                var pistaLista = (await _gestionarPistaService.BuscarPistas(cadena)).Select(item => item.AsDto());
+                var pistaLista = (await _gestionarPistaService.BuscarPistas(cadena))
+                    .Select(item => item.AsDto())
+                    .Where(PuedeVer)
+                    .ToList();
                 return StatusCode(200, pistaLista);
             }
             catch (Exception err)

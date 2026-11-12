@@ -30,6 +30,7 @@ namespace AntaraSoft.Infrastructure.Persistence
                 p.""Reproducciones"",
                 p.""FechaRegistro"",
                 p.""Url"",
+                p.""UsuarioId"",
                 (p.""Letra"" IS NOT NULL AND p.""Letra"" <> '') AS ""TieneLetra"",
                 p.""Letra"",
                 p.""ImagenArtista"",
@@ -64,6 +65,19 @@ namespace AntaraSoft.Infrastructure.Persistence
                 ORDER BY p.""FechaRegistro"" DESC, p.""Nombre"" ASC;";
 
             var pistas = await connection.QueryAsync<PistaBibliotecaDto>(sql);
+            return pistas.ToList();
+        }
+
+        public async Task<List<PistaBibliotecaDto>> ObtenerPistasDeUsuario(Guid usuarioId)
+        {
+            using var connection = new NpgsqlConnection(_settings.ConexionString);
+
+            var sql = PistasBibliotecaSelect + @"
+                WHERE p.""EstaActivo"" = TRUE
+                  AND p.""UsuarioId"" = @UsuarioId
+                ORDER BY p.""FechaRegistro"" DESC, p.""Nombre"" ASC;";
+
+            var pistas = await connection.QueryAsync<PistaBibliotecaDto>(sql, new { UsuarioId = usuarioId });
             return pistas.ToList();
         }
 
@@ -114,9 +128,13 @@ namespace AntaraSoft.Infrastructure.Persistence
             });
         }
 
-        public async Task<Guid> ObtenerOCrearAlbum(Album album)
+        public async Task<Guid> ObtenerOCrearAlbum(Album album, bool soloPropietario = false)
         {
+            if (soloPropietario && album.UsuarioId == Guid.Empty)
+                throw new ArgumentException("El album de una pista propia debe pertenecer a un usuario.", nameof(album));
+
             using var connection = new NpgsqlConnection(_settings.ConexionString);
+            var filtroPropietario = soloPropietario ? @" AND ""UsuarioId"" = @UsuarioId" : string.Empty;
 
             if (!string.IsNullOrWhiteSpace(album.IdExternoMetadatos))
             {
@@ -124,12 +142,13 @@ namespace AntaraSoft.Infrastructure.Persistence
                     SELECT ""Id""
                     FROM ""Album""
                     WHERE ""IdExternoMetadatos"" = @IdExterno
+                    " + filtroPropietario + @"
                     LIMIT 1;",
-                    new { IdExterno = album.IdExternoMetadatos });
+                    new { IdExterno = album.IdExternoMetadatos, album.UsuarioId });
 
                 if (existentePorId.HasValue)
                 {
-                    await CompletarAlbumAsync(connection, existentePorId.Value, album);
+                    await CompletarAlbumAsync(connection, existentePorId.Value, album, soloPropietario);
                     return existentePorId.Value;
                 }
             }
@@ -139,13 +158,14 @@ namespace AntaraSoft.Infrastructure.Persistence
                 FROM ""Album""
                 WHERE LOWER(""Nombre"") = LOWER(@Nombre)
                   AND COALESCE(LOWER(""Artista""), '') = COALESCE(LOWER(@Artista), '')
+                  " + filtroPropietario + @"
                 ORDER BY ""EstaActivo"" DESC
                 LIMIT 1;",
-                new { album.Nombre, album.Artista });
+                new { album.Nombre, album.Artista, album.UsuarioId });
 
             if (existentePorNombre.HasValue)
             {
-                await CompletarAlbumAsync(connection, existentePorNombre.Value, album);
+                await CompletarAlbumAsync(connection, existentePorNombre.Value, album, soloPropietario);
                 return existentePorNombre.Value;
             }
 
@@ -169,10 +189,49 @@ namespace AntaraSoft.Infrastructure.Persistence
                 album.EstaActivo,
                 album.Artista,
                 album.FuenteMetadatos,
-                album.IdExternoMetadatos
+                // El indice unico de IdExterno es global; los albumes privados
+                // se agrupan por nombre y artista para no chocar con el catalogo
+                // publico que ya usa ese identificador.
+                IdExternoMetadatos = soloPropietario ? null : album.IdExternoMetadatos
             });
 
             return album.Id;
+        }
+
+        public async Task<bool> ActualizarPortadaAlbumDeUsuario(Guid albumId, Guid usuarioId, string portadaUrl)
+        {
+            using var connection = new NpgsqlConnection(_settings.ConexionString);
+            var filas = await connection.ExecuteAsync(@"
+                UPDATE ""Album""
+                SET ""PortadaUrl"" = @PortadaUrl
+                WHERE ""Id"" = @Id AND ""UsuarioId"" = @UsuarioId;",
+                new { Id = albumId, UsuarioId = usuarioId, PortadaUrl = portadaUrl });
+
+            return filas > 0;
+        }
+
+        public async Task ActualizarDatosPista(Pista pista)
+        {
+            using var connection = new NpgsqlConnection(_settings.ConexionString);
+            await connection.ExecuteAsync(@"
+                UPDATE ""Pista""
+                SET ""Nombre"" = @Nombre,
+                    ""Interprete"" = @Interprete,
+                    ""ImagenArtista"" = @ImagenArtista,
+                    ""AnoCreacion"" = @AnoCreacion,
+                    ""GeneroId"" = @GeneroId,
+                    ""AlbumId"" = @AlbumId
+                WHERE ""Id"" = @Id;",
+                new
+                {
+                    pista.Id,
+                    pista.Nombre,
+                    pista.Interprete,
+                    pista.ImagenArtista,
+                    pista.AnoCreacion,
+                    pista.GeneroId,
+                    pista.AlbumId
+                });
         }
 
         public async Task<int> ObtenerOCrearGenero(string nombre)
@@ -205,11 +264,11 @@ namespace AntaraSoft.Infrastructure.Persistence
                 INSERT INTO ""Pista""
                     (""Id"", ""Nombre"", ""FechaRegistro"", ""AnoCreacion"", ""Interprete"", ""Compositor"",
                      ""Productor"", ""Reproducciones"", ""GeneroId"", ""Url"", ""AlbumId"", ""EstaActivo"",
-                     ""Letra"", ""ImagenArtista"", ""DuracionSegundos"", ""FuenteMetadatos"", ""IdExternoMetadatos"", ""MetadatosJson"")
+                     ""Letra"", ""ImagenArtista"", ""DuracionSegundos"", ""FuenteMetadatos"", ""IdExternoMetadatos"", ""MetadatosJson"", ""UsuarioId"")
                 VALUES
                     (@Id, @Nombre, @FechaRegistro, @AnoCreacion, @Interprete, @Compositor,
                      @Productor, @Reproducciones, @GeneroId, @Url, @AlbumId, @EstaActivo,
-                     @Letra, @ImagenArtista, @DuracionSegundos, @FuenteMetadatos, @IdExternoMetadatos, @MetadatosJson);";
+                     @Letra, @ImagenArtista, @DuracionSegundos, @FuenteMetadatos, @IdExternoMetadatos, @MetadatosJson, @UsuarioId);";
 
             await connection.ExecuteAsync(sql, new
             {
@@ -230,12 +289,19 @@ namespace AntaraSoft.Infrastructure.Persistence
                 pista.DuracionSegundos,
                 pista.FuenteMetadatos,
                 pista.IdExternoMetadatos,
-                pista.MetadatosJson
+                pista.MetadatosJson,
+                pista.UsuarioId
             });
         }
 
-        private static async Task CompletarAlbumAsync(NpgsqlConnection connection, Guid albumId, Album album)
+        private static async Task CompletarAlbumAsync(
+            NpgsqlConnection connection,
+            Guid albumId,
+            Album album,
+            bool soloPropietario = false)
         {
+            var filtroPropietario = soloPropietario ? @" AND ""UsuarioId"" = @UsuarioId" : string.Empty;
+
             await connection.ExecuteAsync(@"
                 UPDATE ""Album""
                 SET ""PortadaUrl"" = COALESCE(""PortadaUrl"", @PortadaUrl),
@@ -243,15 +309,16 @@ namespace AntaraSoft.Infrastructure.Persistence
                     ""IdExternoMetadatos"" = COALESCE(""IdExternoMetadatos"", @IdExterno),
                     ""FuenteMetadatos"" = COALESCE(""FuenteMetadatos"", @Fuente),
                     ""Artista"" = COALESCE(""Artista"", @Artista)
-                WHERE ""Id"" = @Id;",
+                WHERE ""Id"" = @Id" + filtroPropietario + @";",
                 new
                 {
                     Id = albumId,
                     album.PortadaUrl,
                     FechaPublicacion = album.FechaPublicacion == default ? (object)DBNull.Value : album.FechaPublicacion,
-                    IdExterno = album.IdExternoMetadatos,
+                    IdExterno = soloPropietario ? null : album.IdExternoMetadatos,
                     Fuente = album.FuenteMetadatos,
-                    album.Artista
+                    album.Artista,
+                    album.UsuarioId
                 });
         }
     }

@@ -118,6 +118,12 @@ namespace AntaraSoft.Application.Contracts.Services
         /// metadatos del escaneo (alta de album, genero, portada y letra).
         /// </summary>
         Task<EscaneoAudioResultadoDto> ImportarArchivoAsync(string archivo, Guid usuarioId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Importa un archivo y marca la pista como propiedad de <paramref name="usuarioId"/>.
+        /// Se usa para las subidas de usuarios que no son administradores.
+        /// </summary>
+        Task<EscaneoAudioResultadoDto> ImportarArchivoPropioAsync(string archivo, Guid usuarioId, CancellationToken cancellationToken = default);
     }
 
     public interface ISubidaPistaService
@@ -135,6 +141,19 @@ namespace AntaraSoft.Application.Contracts.Services
             string nombreArchivo,
             Stream contenido,
             Guid usuarioId,
+            CancellationToken cancellationToken = default,
+            bool soloPredeterminada = false,
+            Guid? propietarioId = null);
+
+        /// <summary>
+        /// Sube una pista propia a la ruta predeterminada y la marca como
+        /// propiedad del usuario. No acepta una ruta elegida por el cliente.
+        /// </summary>
+        Task<SubidaPistaDto> SubirPropiaAsync(
+            string subcarpeta,
+            string nombreArchivo,
+            Stream contenido,
+            Guid usuarioId,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -143,6 +162,18 @@ namespace AntaraSoft.Application.Contracts.Services
         /// </summary>
         Task<SubidaPistaDto> SubirDesdeUrlAsync(
             Guid? rutaId,
+            string subcarpeta,
+            string url,
+            Guid usuarioId,
+            CancellationToken cancellationToken = default,
+            bool soloPredeterminada = false,
+            Guid? propietarioId = null);
+
+        /// <summary>
+        /// Descarga una pista propia desde YouTube a la ruta predeterminada y la
+        /// marca como propiedad del usuario.
+        /// </summary>
+        Task<SubidaPistaDto> SubirPropiaDesdeUrlAsync(
             string subcarpeta,
             string url,
             Guid usuarioId,

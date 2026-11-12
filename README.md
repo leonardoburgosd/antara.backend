@@ -39,7 +39,7 @@ Cada subproyecto contiene su propia carpeta `docs/` con especificaciones complet
 - [**features.md**](antara.backend/docs/features.md): Guía paso a paso para crear un feature (Entidad → Repositorio → DTO → Servicio → Controller → DB).
 - [**api.md**](antara.backend/docs/api.md): Catálogo de endpoints HTTP, autenticación requerida y modelos de datos.
 - [**database.md**](antara.backend/docs/database.md): Tablas, funciones almacenadas y migraciones automáticas (`DatabaseInitializer`).
-- [**metadata.md**](antara.backend/docs/metadata.md): Proveedores externos (Deezer, TheAudioDB, Lyrics.ovh), rate limiting y fallback.
+- [**metadata.md**](antara.backend/docs/metadata.md): Proveedores externos (Deezer, TheAudioDB, MusicBrainz, iTunes, LRCLIB y Lyrics.ovh), rate limiting y fallback.
 - [**security.md**](antara.backend/docs/security.md): Tokens HMAC-SHA256, hash BCrypt y filtros de autorización.
 - [**audio-storage.md**](antara.backend/docs/audio-storage.md): Mapeo de rutas Windows en Linux (`HostPathResolver`), streaming y escaneo concurrente.
 

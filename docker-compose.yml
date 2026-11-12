@@ -85,6 +85,13 @@ services:
       AppSettings__MetadatosProveedores__3__BaseUrl: ${ITUNES_API_BASE:-https://itunes.apple.com}
       AppSettings__MetadatosProveedores__3__Prioridad: ${ITUNES_PRIORIDAD:-3}
       AppSettings__MetadatosProveedores__3__Habilitado: ${ITUNES_HABILITADO:-true}
+      # LRCLIB: sin clave; letras planas y sincronizadas, duracion y album.
+      AppSettings__MetadatosProveedores__4__Nombre: lrclib
+      AppSettings__MetadatosProveedores__4__Etiqueta: LRCLIB
+      AppSettings__MetadatosProveedores__4__Tipo: lrclib
+      AppSettings__MetadatosProveedores__4__BaseUrl: ${LRCLIB_API_BASE:-https://lrclib.net}
+      AppSettings__MetadatosProveedores__4__Prioridad: ${LRCLIB_PRIORIDAD:-4}
+      AppSettings__MetadatosProveedores__4__Habilitado: ${LRCLIB_HABILITADO:-true}
       # Alternativa para redefinir TODA la lista desde una sola variable de entorno
       # (JSON). Si se define, tiene prioridad sobre los bloques anteriores.
       METADATOS_PROVEEDORES_JSON: ${METADATOS_PROVEEDORES_JSON:-}

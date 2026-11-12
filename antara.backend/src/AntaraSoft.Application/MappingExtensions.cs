@@ -36,6 +36,7 @@ namespace AntaraSoft.Application
                 GeneroId = pista.GeneroId,
                 Url = pista.Url,
                 AlbumId = pista.AlbumId,
+                UsuarioId = pista.UsuarioId,
                 EstaActivo = pista.EstaActivo,
                 Letra = pista.Letra,
                 ImagenArtista = pista.ImagenArtista,

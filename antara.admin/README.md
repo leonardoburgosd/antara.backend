@@ -22,7 +22,7 @@ El frontend está estructurado por funcionalidades independientes:
 
 - `src/features/authentication`: Flujo de inicio de sesión, verificación y creación del primer administrador.
 - `src/features/dashboard`: Shell principal, barra de navegación, resúmenes estadísticos y métricas.
-- `src/features/pistas`: Catálogo de pistas, reproductor flotante con control de volumen, modal de detalles y búsqueda/actualización de metadatos (Deezer y TheAudioDB).
+- `src/features/pistas`: Catálogo de pistas, reproductor flotante con control de volumen, modal de detalles y búsqueda/actualización de metadatos (Deezer, TheAudioDB, MusicBrainz, iTunes y LRCLIB).
 - `src/features/rutas-audio`: Administración de rutas locales del host y escaneo en segundo plano.
 - `src/components/ui`: Componentes atómicos e interactivos reutilizables (Modales, Botones, Inputs, Sliders, Badges, etc.).
 - `src/services/api`: Cliente HTTP centralizado (`apiClient`), manejo automático de 401 y catálogo de `endpoints`.

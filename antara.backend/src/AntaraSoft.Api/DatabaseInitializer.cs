@@ -75,6 +75,7 @@ namespace AntaraSoft.Api
                         ""GeneroId"" INTEGER NOT NULL,
                         ""Url"" TEXT,
                         ""AlbumId"" UUID NOT NULL REFERENCES ""Album""(""Id""),
+                        ""UsuarioId"" UUID REFERENCES ""Usuario""(""Id""),
                         ""EstaActivo"" BOOLEAN NOT NULL DEFAULT TRUE,
                         ""Letra"" TEXT,
                         ""ImagenArtista"" TEXT,
@@ -130,6 +131,8 @@ namespace AntaraSoft.Api
                     ALTER TABLE ""Pista"" ADD COLUMN IF NOT EXISTS ""FuenteMetadatos"" VARCHAR(50);
                     ALTER TABLE ""Pista"" ADD COLUMN IF NOT EXISTS ""IdExternoMetadatos"" VARCHAR(100);
                     ALTER TABLE ""Pista"" ADD COLUMN IF NOT EXISTS ""MetadatosJson"" TEXT;
+                    ALTER TABLE ""Pista"" ADD COLUMN IF NOT EXISTS ""UsuarioId"" UUID REFERENCES ""Usuario""(""Id"");
+                    CREATE INDEX IF NOT EXISTS ""IX_Pista_UsuarioId"" ON ""Pista"" (""UsuarioId"");
 
                     CREATE TABLE IF NOT EXISTS ""Genero"" (
                         ""Id"" SERIAL PRIMARY KEY,
@@ -447,10 +450,10 @@ namespace AntaraSoft.Api
                     -- ObtenerPista
                     DROP FUNCTION IF EXISTS ""ObtenerPista""(UUID);
                     CREATE OR REPLACE FUNCTION ""ObtenerPista""(p_Id UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER, ""UsuarioId"" UUID)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos"", pi.""UsuarioId""
                         FROM ""Pista"" pi WHERE pi.""Id"" = p_Id;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -458,10 +461,10 @@ namespace AntaraSoft.Api
                     -- ObtenerTodosPistasDeAlbum
                     DROP FUNCTION IF EXISTS ""ObtenerTodosPistasDeAlbum""(UUID);
                     CREATE OR REPLACE FUNCTION ""ObtenerTodosPistasDeAlbum""(p_AlbumId UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER, ""UsuarioId"" UUID)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos"", pi.""UsuarioId""
                         FROM ""Pista"" pi WHERE pi.""AlbumId"" = p_AlbumId;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -469,10 +472,10 @@ namespace AntaraSoft.Api
                     -- ObtenerTodosPistasDePlaylist
                     DROP FUNCTION IF EXISTS ""ObtenerTodosPistasDePlaylist""(UUID);
                     CREATE OR REPLACE FUNCTION ""ObtenerTodosPistasDePlaylist""(p_PlaylistId UUID)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER, ""UsuarioId"" UUID)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos"", pi.""UsuarioId""
                         FROM ""Pista"" pi INNER JOIN ""PlaylistPista"" pp ON pi.""Id"" = pp.""PistaId"" WHERE pp.""PlaylistId"" = p_PlaylistId;
                     END;
                     $$ LANGUAGE plpgsql;
@@ -480,10 +483,10 @@ namespace AntaraSoft.Api
                     -- BuscarPistas
                     DROP FUNCTION IF EXISTS ""BuscarPistas""(VARCHAR);
                     CREATE OR REPLACE FUNCTION ""BuscarPistas""(p_Busqueda VARCHAR)
-                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER)
+                    RETURNS TABLE(""Id"" UUID, ""Nombre"" VARCHAR, ""FechaRegistro"" TIMESTAMP, ""AnoCreacion"" INTEGER, ""Interprete"" VARCHAR, ""Compositor"" VARCHAR, ""Productor"" VARCHAR, ""Reproducciones"" INTEGER, ""GeneroId"" INTEGER, ""Url"" TEXT, ""AlbumId"" UUID, ""EstaActivo"" BOOLEAN, ""DuracionSegundos"" INTEGER, ""UsuarioId"" UUID)
                     AS $$
                     BEGIN
-                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos""
+                        RETURN QUERY SELECT pi.""Id"", pi.""Nombre"", pi.""FechaRegistro"", pi.""AnoCreacion"", pi.""Interprete"", pi.""Compositor"", pi.""Productor"", pi.""Reproducciones"", pi.""GeneroId"", pi.""Url"", pi.""AlbumId"", pi.""EstaActivo"", pi.""DuracionSegundos"", pi.""UsuarioId""
                         FROM ""Pista"" pi WHERE LOWER(pi.""Nombre"") LIKE LOWER('%' || p_Busqueda || '%') OR LOWER(pi.""Interprete"") LIKE LOWER('%' || p_Busqueda || '%');
                     END;
                     $$ LANGUAGE plpgsql;

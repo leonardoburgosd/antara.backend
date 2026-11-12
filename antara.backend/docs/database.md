@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS "Pista" (
     "GeneroId"            INTEGER REFERENCES "Genero"("Id"),
     "Url"                 TEXT NOT NULL,              -- Ruta física o URL
     "AlbumId"             UUID REFERENCES "Album"("Id"),
+    "UsuarioId"           UUID REFERENCES "Usuario"("Id"), -- NULL = biblioteca global
     "EstaActivo"          BOOLEAN NOT NULL DEFAULT TRUE,
     "Letra"               TEXT,
     "ImagenArtista"       TEXT,
@@ -70,6 +71,8 @@ CREATE TABLE IF NOT EXISTS "Pista" (
     "IdExternoMetadatos"  VARCHAR(100),
     "PortadaUrl"          TEXT
 );
+
+CREATE INDEX IF NOT EXISTS "IX_Pista_UsuarioId" ON "Pista" ("UsuarioId");
 ```
 
 ### `Playlist`

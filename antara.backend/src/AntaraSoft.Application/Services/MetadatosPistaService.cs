@@ -138,6 +138,7 @@ namespace AntaraSoft.Application.Services
                 GeneroId = actual.GeneroId,
                 DuracionSegundos = actual.DuracionSegundos,
                 AlbumId = actual.AlbumId,
+                UsuarioId = actual.UsuarioId,
                 Url = actual.Url,
                 ImagenArtista = actual.ImagenArtista,
                 FuenteMetadatos = actual.FuenteMetadatos,
@@ -176,7 +177,11 @@ namespace AntaraSoft.Application.Services
             {
                 try
                 {
-                    metadatos.Letra = await _letrasProvider.ObtenerAsync(metadatos.ArtistaPrincipal, metadatos.Titulo, cancellationToken);
+                    // LRCLIB ya incluye la letra plana; no se borra si el
+                    // proveedor de letras no la encuentra.
+                    var letra = await _letrasProvider.ObtenerAsync(metadatos.ArtistaPrincipal, metadatos.Titulo, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(letra))
+                        metadatos.Letra = letra;
                 }
                 catch (OperationCanceledException) { throw; }
                 catch { /* La letra es opcional */ }
@@ -190,6 +195,9 @@ namespace AntaraSoft.Application.Services
 
             var albumNombre = Truncar(!string.IsNullOrWhiteSpace(metadatos.Album) ? metadatos.Album : "Sin album", 255);
 
+            // Si la pista pertenece a un usuario, su album tambien se mantiene
+            // dentro de ese propietario para no mezclar catalogo privado.
+            var propietarioId = actual.UsuarioId ?? usuarioId;
             var albumId = await _bibliotecaRepository.ObtenerOCrearAlbum(new Album
             {
                 Id = Guid.NewGuid(),
@@ -198,12 +206,12 @@ namespace AntaraSoft.Application.Services
                 EstaPublicado = false,
                 FechaPublicacion = metadatos.FechaPublicacion ?? default,
                 PortadaUrl = metadatos.PortadaUrl,
-                UsuarioId = usuarioId,
+                UsuarioId = propietarioId,
                 EstaActivo = true,
                 Artista = Truncar(metadatos.ArtistaPrincipal ?? interprete, 255),
                 FuenteMetadatos = Truncar(metadatos.Fuente, 50),
                 IdExternoMetadatos = Truncar(metadatos.IdAlbumExterno, 100)
-            });
+            }, actual.UsuarioId.HasValue);
 
             var generoId = 0;
             if (!string.IsNullOrWhiteSpace(metadatos.Genero))

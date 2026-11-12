@@ -43,6 +43,7 @@ Representa un archivo de audio en la biblioteca.
 | `GeneroId` | `int` | FK → tabla `Genero` |
 | `Url` | `string` | Ruta física o URL del archivo de audio |
 | `AlbumId` | `Guid` | FK → `Album` |
+| `UsuarioId` | `Guid?` | Dueño de una pista subida por un usuario; `null` en la biblioteca global |
 | `EstaActivo` | `bool` | Si la pista está visible |
 | `Letra` | `string` | Letra de la canción (obtenida de Lyrics.OVH) |
 | `ImagenArtista` | `string` | URL de imagen del artista |

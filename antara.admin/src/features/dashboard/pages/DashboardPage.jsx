@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDashboard } from '../hooks/useDashboard'
 import { dashboardService } from '../services/dashboardService'
@@ -34,7 +34,13 @@ import {
 } from '../../../components/ui/Icons'
 
 import { RutasAudioPage } from '../../rutas-audio'
-import { PistasPage } from '../../pistas'
+import {
+  ColaSubidasPanel,
+  ColaSubidasProvider,
+  PistasPage,
+  SubirPistaModal,
+  useColaSubidas,
+} from '../../pistas'
 import { UsuariosPage } from '../../usuarios'
 import { AlbumesPage } from '../../albumes'
 import { PlaylistsPage } from '../../playlists'
@@ -50,17 +56,25 @@ const NAV_ITEMS = [
   { id: 'configuracion', label: 'Configuración', icon: IconSettings },
 ]
 
-export const DashboardPage = () => {
+export const DashboardPage = () => (
+  <ColaSubidasProvider>
+    <DashboardPageContent />
+  </ColaSubidasProvider>
+)
+
+const DashboardPageContent = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const { user, refreshUser, dashboard, health, loading, error, refetch } = useDashboard()
+  const { encolar, ultimaCompletada } = useColaSubidas()
 
   const [activeNav, setActiveNav] = useState(() => {
     const seccion = searchParams.get('seccion')
     return seccion && NAV_ITEMS.some((item) => item.id === seccion) ? seccion : 'dashboard'
   })
   const [toast, setToast] = useState('')
+  const [subirAbierto, setSubirAbierto] = useState(false)
 
   const today = useMemo(() => {
     const value = new Date().toLocaleDateString('es-PE', {
@@ -87,6 +101,35 @@ export const DashboardPage = () => {
       const item = NAV_ITEMS.find((nav) => nav.id === id)
       setToast(`${item?.label ?? 'Sección'}: próximamente.`)
     }
+  }
+
+  const ultimaCompletadaId = ultimaCompletada?.id
+  const ultimaCompletadaEn = ultimaCompletada?.completadoEn
+
+  useEffect(() => {
+    if (!ultimaCompletadaId) return
+
+    const resultado = ultimaCompletada?.resultado
+    setToast(
+      resultado?.conMetadatos
+        ? `«${resultado.nombre}» se subió y se completaron sus metadatos.`
+        : `«${resultado?.nombre || ultimaCompletada?.nombre}» se subió a ${resultado?.rutaDestino || 'la biblioteca'}.`,
+    )
+    refetch()
+  }, [ultimaCompletadaEn])
+
+  const encolarSubidas = (trabajos) => {
+    const cantidad = encolar(trabajos)
+    if (!cantidad) return 0
+
+    const primero = Array.isArray(trabajos) ? trabajos[0] : trabajos
+    setSubirAbierto(false)
+    setToast(
+      cantidad === 1
+        ? `«${primero?.nombre}» se agregó a la cola de subidas.`
+        : `${cantidad} subidas se agregaron a la cola.`,
+    )
+    return cantidad
   }
 
   const handleQuickAction = async (action) => {
@@ -171,7 +214,7 @@ export const DashboardPage = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+          <div className="w-full px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
             {/* Mobile Header */}
             <div className="mb-6 flex items-center justify-between lg:hidden">
               <div className="flex items-center gap-3">
@@ -296,7 +339,7 @@ export const DashboardPage = () => {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => setToast('La carga de pistas estará disponible pronto.')}
+                        onClick={() => setSubirAbierto(true)}
                         className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/85"
                       >
                         <IconUpload className="h-4 w-4" />
@@ -357,6 +400,14 @@ export const DashboardPage = () => {
           </div>
         </main>
       </div>
+
+      <SubirPistaModal
+        isOpen={subirAbierto}
+        onClose={() => setSubirAbierto(false)}
+        onEncolar={encolarSubidas}
+      />
+
+      <ColaSubidasPanel />
 
       <Toast message={toast} onDismiss={() => setToast('')} />
     </div>

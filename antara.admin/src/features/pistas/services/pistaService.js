@@ -1,5 +1,6 @@
 import { apiClient, parseErrorMessage, ApiError } from '../../../services/api/apiClient'
 import { ENDPOINTS } from '../../../services/api/endpoints'
+import { storage } from '../../../services/storage/localStorage'
 
 export const pistaService = {
   async getPistas() {
@@ -132,7 +133,11 @@ export const pistaService = {
   },
 
   getStreamUrl(pistaId) {
-    return ENDPOINTS.PISTAS.STREAM(pistaId)
+    const url = ENDPOINTS.PISTAS.STREAM(pistaId)
+    const token = storage.getToken()
+    // Las pistas privadas exigen el token tambien en el elemento <audio>,
+    // que no envia el encabezado Authorization.
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url
   },
 
   async registerPlay(pistaId) {

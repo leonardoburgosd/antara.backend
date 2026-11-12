@@ -99,6 +99,15 @@ Variante que valida roles directamente desde el header `X-Usuario-Tipo` (para us
 > [!NOTE]
 > En prácticamente todos los endpoints usa `[TokenAuthorize]`, no `[RoleAuthorize]`. `RoleAuthorize` es un filtro auxiliar legado.
 
+### Pistas privadas
+
+Las pistas con `UsuarioId` no nulo solo las puede consultar su dueño o un
+administrador. `GET /api/pista/{id}` acepta el token en `Authorization: Bearer`
+o en `?token=`, porque el elemento `<audio>` del navegador no envía encabezados.
+Si el token falta o no autoriza se responde `404` (no `403`) para no revelar que
+la pista existe. Los listados heredados (`/api/pista/todos/album`, `/playlist` y
+`/buscar`) filtran las pistas privadas de otros usuarios.
+
 ---
 
 ## AdminBootstrap
@@ -106,7 +115,6 @@ Variante que valida roles directamente desde el header `X-Usuario-Tipo` (para us
 Cuando el sistema arranca sin ningún administrador registrado, el filtro `AdminBootstrapFilter` **bloquea todos los endpoints** excepto:
 
 - `GET /api/sistema/health`
-- `GET /api/sistema/crear-primer-admin`
 - `POST /api/sistema/crea-primero-admin`
 
 Esto garantiza que el primer usuario creado sea siempre un administrador.

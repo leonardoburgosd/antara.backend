@@ -105,8 +105,12 @@ AntaraSoft.Infrastructure/
 ├── Metadata/
 │   ├── DeezerMetadataProvider.cs
 │   ├── TheAudioDbMetadataProvider.cs
+│   ├── MusicBrainzMetadataProvider.cs
+│   ├── ItunesMetadataProvider.cs
+│   ├── LrcLibMetadataProvider.cs
 │   ├── LyricsOvhProvider.cs
 │   ├── EnriquecedorMetadatos.cs
+│   ├── SimilitudTexto.cs
 │   ├── AnalizadorNombreArchivo.cs
 │   └── ApiRateLimiter.cs
 └── Services/

@@ -269,8 +269,19 @@ namespace AntaraSoft.Infrastructure.Services
         /// Importa un archivo suelto (por ejemplo una subida desde el panel)
         /// reutilizando el mismo enriquecido de metadatos que el escaneo.
         /// </summary>
-        public async Task<EscaneoAudioResultadoDto> ImportarArchivoAsync(
-            string archivo, Guid usuarioId, CancellationToken cancellationToken = default)
+        public Task<EscaneoAudioResultadoDto> ImportarArchivoAsync(
+            string archivo, Guid usuarioId, CancellationToken cancellationToken = default) =>
+            ImportarArchivoInternoAsync(archivo, usuarioId, null, cancellationToken);
+
+        public Task<EscaneoAudioResultadoDto> ImportarArchivoPropioAsync(
+            string archivo, Guid usuarioId, CancellationToken cancellationToken = default) =>
+            ImportarArchivoInternoAsync(archivo, usuarioId, usuarioId, cancellationToken);
+
+        private async Task<EscaneoAudioResultadoDto> ImportarArchivoInternoAsync(
+            string archivo,
+            Guid usuarioId,
+            Guid? propietarioId,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(archivo) || !File.Exists(archivo))
                 throw new ArgumentException("El archivo de audio no existe o no es accesible.", nameof(archivo));
@@ -281,6 +292,7 @@ namespace AntaraSoft.Infrastructure.Services
             return await ImportarAsync(
                 archivo,
                 usuarioId,
+                propietarioId,
                 biblioteca,
                 new ConcurrentDictionary<string, Lazy<Task<Guid>>>(StringComparer.OrdinalIgnoreCase),
                 new ConcurrentDictionary<string, Lazy<Task<int>>>(StringComparer.OrdinalIgnoreCase),
@@ -297,7 +309,7 @@ namespace AntaraSoft.Infrastructure.Services
             CancellationToken cancellationToken)
         {
             var resultado = await ImportarAsync(
-                archivo, usuarioId, biblioteca, albumes, generos, cancellationToken);
+                archivo, usuarioId, null, biblioteca, albumes, generos, cancellationToken);
 
             lock (job.Sync)
             {
@@ -313,6 +325,7 @@ namespace AntaraSoft.Infrastructure.Services
         private async Task<EscaneoAudioResultadoDto> ImportarAsync(
             string archivo,
             Guid usuarioId,
+            Guid? propietarioId,
             IBibliotecaRepository biblioteca,
             ConcurrentDictionary<string, Lazy<Task<Guid>>> albumes,
             ConcurrentDictionary<string, Lazy<Task<int>>> generos,
@@ -358,7 +371,7 @@ namespace AntaraSoft.Infrastructure.Services
                     Artista = albumArtista,
                     FuenteMetadatos = metadatos.Fuente,
                     IdExternoMetadatos = Truncar(metadatos.IdAlbumExterno, 100)
-                })));
+                }, propietarioId.HasValue)));
 
             var albumId = await albumPerezoso.Value;
 
@@ -385,6 +398,7 @@ namespace AntaraSoft.Infrastructure.Services
                 GeneroId = generoId,
                 Url = archivo,
                 AlbumId = albumId,
+                UsuarioId = propietarioId,
                 EstaActivo = true,
                 Letra = metadatos.Letra,
                 ImagenArtista = metadatos.ImagenArtistaUrl,
